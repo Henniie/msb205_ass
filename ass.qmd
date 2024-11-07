@@ -4,27 +4,6 @@ format: html
 editor: visual
 ---
 
-## Quarto
-
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
-
-## Running Code
-
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
-
-```{r}
-1 + 1
-```
-
-You can add options to executable code like this
-
-```{r}
-#| echo: false
-2 * 2
-```
-
-The `echo: false` option disables the printing of code (only output is displayed).
-
 ```{r}
 #| ft.arraystretch: 0.9
 #| label: tbl-mod1-and-mod2
@@ -163,17 +142,17 @@ head(kc_house_sf_2926)
 ## i. Les inn .shp filen WADOH King County.
 
 ```{r}
-# Laster inn data
-kc_house_data <- read.csv("MapsData/kc_house_data.csv")
 
-# Angir filstien
-shapefile_path <- "~/Desktop/boligøkonomi/WADOH/WADOH_Environmental_Health_Disparities_Index_Calculated_for_King_County___wadohehdindex_area.shp"
+library(sf)
 
-# Laster inn data
-kc_wadoh_map <- st_read("MapsData/WADOH_Environmental_Health.shp")
+# Les inn shapefilen på nytt
+kc_wadoh_map <- st_read("MapsData/WADOH_Environmental_Health_Disparities_Index_Calculated_for_King_County___wadohehdindex_area.shp")
 
-# print
-print(head(kc_wadoh_map))
+# sjekker kolonnene
+names(kc_wadoh_map)
+
+
+
 
 ```
 
@@ -207,6 +186,11 @@ kc_wadoh_map <- kc_wadoh_map %>%
 
 # head
 head(kc_wadoh_map)
+
+```
+
+```{r}
+names(kc_wadoh_map)
 
 ```
 
@@ -261,6 +245,9 @@ income_data <- income_data %>%
 ```
 
 ```{r}
+install.packages("sf")
+library(sf)
+library(dplyr)
 
 # CRS for income_data_sf til EPSG:2926
 st_crs(income_data_sf) <- st_crs(kc_wadoh_map)
@@ -375,5 +362,149 @@ kc_house_sf_2926 <- kc_house_sf_2926 %>%
 
 # Lagre husdataene som GeoPackage-fil
 st_write(kc_house_sf_2926, "kc_house_data.gpkg", append = FALSE)
+
+```
+
+# 7.Spatial Regressions
+
+## i. Last gruppens utvalg fra relevant .gpkg fil (tallene er seed verdiene som er brukt for å genererer utvalgene)
+
+```{r}
+library(sf)
+
+# Laster inn GeoPackage-filen
+kc_house_data_7654 <- st_read("MapsData/kc_house_data_7654.gpkg")
+
+# Sjekker de første radene av dataene
+head(kc_house_data_7654)
+```
+
+## ii. Legg områdevariablene til det reduserte datasettet.
+
+```{r}
+# Sjekk begge datasettene
+st_crs(kc_house_data_7654)
+st_crs(tracts10)
+
+```
+
+```{r}
+# Transformerer datasettene
+kc_house_data_7654 <- st_transform(kc_house_data_7654, crs = 2926)
+tracts10 <- st_transform(tracts10, crs = 2926)
+
+# Legger til områdevariabler
+kc_house_data_with_tracts <- st_join(kc_house_data_7654, tracts10)
+
+# Sjekk variabelnavn
+names(kc_house_data_with_tracts)
+summary(kc_house_data_with_tracts)
+
+
+```
+
+## iii. Formuler modellen dere vil bruke. Kjør den som lm (OLS) modell og bruk `lm.morantest()` og `moran.plot()` på residualene for å avgjøre om vi har *uforklarte spatial effects* i residualene.
+
+## iv. Modellen skal inneholde områdevariablene familie inntekt og variabelen som angir etnisitet (rase).
+
+```{r}
+# formel
+mod_formula <- price ~ sqft_living + bedrooms + bathrooms + floors + yr_built + 
+               inc_fam_tot + POC_percen + year_month
+
+# OLS-model
+model_ols <- lm(mod_formula, data = kc_house_data_with_tracts)
+
+# summary
+summary(model_ols)
+```
+
+```{r}
+install.packages("spdep")
+library(spdep)
+```
+
+```{r}
+# koordinater
+coords <- st_coordinates(kc_house_data_with_tracts)
+
+# 5 nærmeste naboer
+nb <- knn2nb(knearneigh(coords, k = 5))
+listw <- nb2listw(nb, style = "W")
+
+# residualer
+residuals_ols <- residuals(model_ols)
+
+# Moran I-test residualene
+moran_test <- lm.morantest(model_ols, listw)
+print(moran_test)
+```
+
+```{r}
+# Visualiser romlig autokorrelasjon i residualene
+moran.plot(residuals_ols, listw)
+```
+
+## v. Generer vektmatrise ut fra k=3 og k=10 nærmeste naboer
+
+```{r}
+# Vektmatrise for de 3 nærmeste naboene
+nb_k3 <- knn2nb(knearneigh(coords, k = 3))
+listw_k3 <- nb2listw(nb_k3, style = "W")  # "W" for vektet matrise
+
+# Vekmatrise for de 10 nærmeste naboene
+nb_k10 <- knn2nb(knearneigh(coords, k = 10))
+listw_k10 <- nb2listw(nb_k10, style = "W")
+```
+
+## vi. Bruk Anselin ([1988](https://msb205.netlify.app/assignment/kc_h24/assignment_text_24#ref-Anselin1988)) sin teknikk med Lagrange Multiplikator test vha. `lm.LMtests()`
+
+```{r}
+
+# OLS-modell
+model_ols <- lm(mod_formula, data = kc_house_data_with_tracts)
+
+# Vektmatrise for de 3 nærmeste naboene
+listw <- listw_k3  
+
+# Vektmatrise for de 10 nærmeste naboene
+listw <- listw_k10
+```
+
+```{r}
+# LM test
+lm_tests <- lm.LMtests(model_ols, listw, test = "all")
+print(lm_tests)
+
+```
+
+## vi. Diskuter hvilken modell (SAR, SEM eller lm (OLS)) som synes å være den beste.
+
+...
+
+## vii. Bruk så teknikken med nestede modeller anbefalt av LeSage ([n.d.](https://msb205.netlify.app/assignment/kc_h24/assignment_text_24#ref-lesage)). Diskuter først om vi står overfor et *lokalt* eller *globalt* fenomen. Bruk opsjonen `durban = as.formula(~ variabelnavnene du vil ha impacts for)`. Dette for å slippe impacts for tidsdummiene. Test så de nestede modellne vha. *likelihood ratio test*. Hvilken modell synes å være den beste?
+
+I ett boligmarked kan det være både blanding av lokale og globale effekter. En lokal tilnærming ser på nabolagseffekter, mens globale fenomen er når markedsforholdene påvirker en hel region. I dette tilfellet ... slide 27.
+
+```{r}
+install.packages("spatialreg")
+library(spatialreg)
+```
+
+```{r}
+# durban formel
+durban_vars <- as.formula(~ sqft_living + bedrooms + bathrooms + floors + yr_built + inc_fam_tot + POC_percen)
+
+# SDM modell
+sdm_model <- lagsarlm(mod_formula, data = kc_house_data_with_tracts, listw = listw, type = "Durbin")
+
+summary(sdm_model)
+
+
+```
+
+## viii. For alternativet k=10 (10 nærmeste naboer). Bruk `moran.plot()` på residualene fra de ulike modellene for å illustrere hvor godt hver modell fjerner «spatial effects» fra residualene.
+
+```{r}
 
 ```
