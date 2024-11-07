@@ -53,14 +53,12 @@ modelsummary(
 
 ## i. Sjekk definisjonen på de ulike variablene
 
-##  ii. Les .csv filen med *House Sales King County* inn i R
+## ii. Les .csv filen med *House Sales King County* inn i R
 
 ```{r}
-# Angir filstien
-file_path <- "~/Desktop/boligøkonomi/kc_house_data.csv"
 
 # Laster inn data
-kc_house_data <- read.csv(file_path)
+kc_house_data <- read.csv("MapsData/kc_house_data.csv")
 
 # head data
 head(kc_house_data)
