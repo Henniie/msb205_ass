@@ -163,12 +163,14 @@ head(kc_house_sf_2926)
 ## i. Les inn .shp filen WADOH King County.
 
 ```{r}
+# Laster inn data
+kc_house_data <- read.csv("MapsData/kc_house_data.csv")
 
 # Angir filstien
 shapefile_path <- "~/Desktop/boligøkonomi/WADOH/WADOH_Environmental_Health_Disparities_Index_Calculated_for_King_County___wadohehdindex_area.shp"
 
 # Laster inn data
-kc_wadoh_map <- st_read(shapefile_path)
+kc_wadoh_map <- st_read("MapsData/WADOH_Environmental_Health.shp")
 
 # print
 print(head(kc_wadoh_map))
@@ -233,7 +235,7 @@ library(dplyr)
 file_path <- "~/Desktop/boligøkonomi/acs_b19101_familyincome.dbf"
 
 # Laster data
-income_data <- read.dbf(file_path)
+income_data <- read.dbf("MapsData/acs_b19101_familyincome.dbf")
 ```
 
 ```{r}
@@ -282,7 +284,7 @@ library(sf)
 file_path <- "~/Desktop/boligøkonomi/censusSHP/tracts10.shp"
 
 # Laster data
-tracts10 <- st_read(file_path)
+tracts10 <- st_read("MapsData/censusSHP/tracts10.shp")
 
 # head
 head(tracts10)
