@@ -1,3 +1,11 @@
+# Added
+MapsData/*
+*.pdf
+*.html
+*.docx
+*.Rproj
+.DS_Store
+
 # History files
 .Rhistory
 .Rapp.history

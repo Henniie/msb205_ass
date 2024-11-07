@@ -1,0 +1,379 @@
+---
+title: "assignment bolig"
+format: html
+editor: visual
+---
+
+## Quarto
+
+Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+
+## Running Code
+
+When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+
+```{r}
+1 + 1
+```
+
+You can add options to executable code like this
+
+```{r}
+#| echo: false
+2 * 2
+```
+
+The `echo: false` option disables the printing of code (only output is displayed).
+
+```{r}
+#| ft.arraystretch: 0.9
+#| label: tbl-mod1-and-mod2
+#| tbl-cap: "Table comparing models 1 and 2. T-values are reported in parantheses below coeffisient estimates."
+lm1 <- lm('mpg ~ wt + hp', data = mtcars)
+lm2 <- lm('mpg ~ wt + hp + factor(cyl)', data = mtcars)
+lm3 <- lm('mpg ~ wt + hp + factor(cyl) + factor(am)', data = mtcars)
+modelsummary(
+  # Bruker her named list for å kunne sette egne navn
+  # på modellene. Må ha ticks siden mellomrom i navnene.
+  list(
+    `Modell 1` = lm1, 
+    `Modell 2` = lm2,
+    `Modell 3` = lm3
+    ), 
+  # neste linje sørger for t-verdier istedenfor std. error
+  statistic = "statistic",
+  stars = TRUE,
+  output = "flextable"
+  ) %>% 
+  theme_booktabs() |> 
+  line_spacing(space = 0.3, part = "body")
+```
+
+# 1.Last ned *House Sales King County, USA* fra Kaggle
+
+## i. Sjekk definisjonen på de ulike variablene
+
+##  ii. Les .csv filen med *House Sales King County* inn i R
+
+```{r}
+# Angir filstien
+file_path <- "~/Desktop/boligøkonomi/kc_house_data.csv"
+
+# Laster inn data
+kc_house_data <- read.csv(file_path)
+
+# head data
+head(kc_house_data)
+```
+
+## iii. Sorter salgene «descending» etter dato, siste først (dvs. mai 2015, april 2015 osv.)
+
+```{r}
+install.packages("dplyr")
+library(dplyr)
+
+# Konverter date-kolonnen til datoformat
+kc_house_data$date <- as.Date(kc_house_data$date, format = "%Y%m%dT000000")
+
+# Sorter salgene «descending» etter dato, siste først (dvs. mai 2015, april 2015 osv.)
+kc_house_data_sorted <- kc_house_data %>%
+  arrange(desc(date))
+
+# head
+head(kc_house_data_sorted)
+
+```
+
+## iv. Bruk `dplyr::distinct()` til å velge siste salg der vi har multiple salg av samme eiendom.
+
+```{r}
+
+# Sorter datasettet etter dato i synkende rekkefølge og fjern duplikater basert på `id`
+latest_sales <- kc_house_data %>%
+  arrange(desc(date)) %>%
+  distinct(id, .keep_all = TRUE)
+
+# head
+head(latest_sales)
+
+```
+
+## v. Bruk `st_as_sf()` til å konvertere house data til et sf objekt vha. long lat og sett til geografisk projeksjon, dvs EPSG:4326.
+
+```{r}
+install.packages("sf")
+library(sf)
+```
+
+```{r}
+
+# Konverter dataene (long og lat)
+kc_house_sf <- st_as_sf(kc_house_data, coords = c("long", "lat"), crs = 4326)
+
+# print
+print(kc_house_sf)
+
+```
+
+## vi. Konverter dette sf objektet så til projeksjonen EPSG:2926.
+
+```{r}
+# Konverter sf-objektet til projeksjonen EPSG:2926
+kc_house_sf_2926 <- st_transform(kc_house_sf, crs = 2926)
+
+# print
+print(kc_house_sf_2926)
+
+```
+
+## vii. Bruk koordinatene fra Seattles wikipedia-side (øvre høyre hjørne, klikk linken så får dere koordinatene i desimal form) og sett dette punktet som CBD for Seattle.
+
+```{r}
+
+# Definer koordinatene for Seattles CBD
+seattle_cbd_coords <- data.frame(
+  longitude = -122.3321,
+  latitude = 47.6062
+)
+
+# Konverter til sf-objekt med geografisk projeksjon (EPSG:4326)
+seattle_cbd_sf <- st_as_sf(seattle_cbd_coords, coords = c("longitude", "latitude"), crs = 4326)
+
+```
+
+## viii. Konverter dette punktet til EPSG:2926. Finn avstanden mellom dette punktet og samtlige hus i datasettet i luftlinje. Konverter avstandene til km og legg dem i variabelen dest_CBD i kartet med husdata.
+
+```{r}
+# konverterer til EPSG:2926
+seattle_cbd_sf_2926 <- st_transform(seattle_cbd_sf, crs = 2926)
+
+# Beregner avstanden i meter mellom Seattle CBD og samtlige hus
+kc_house_sf_2926 <- kc_house_sf_2926 %>%
+  mutate(dest_CBD = st_distance(geometry, seattle_cbd_sf_2926))
+
+# Konverter avstand fra meter til kilometer
+kc_house_sf_2926 <- kc_house_sf_2926 %>%
+  mutate(dest_CBD = as.numeric(dest_CBD) / 1000)  # Konverter til kilometer
+
+# head
+head(kc_house_sf_2926)
+
+```
+
+# 2.Last ned *WADOH Environmental Health Disparities Index Calculated for King County*
+
+## i. Les inn .shp filen WADOH King County.
+
+```{r}
+
+# Angir filstien
+shapefile_path <- "~/Desktop/boligøkonomi/WADOH/WADOH_Environmental_Health_Disparities_Index_Calculated_for_King_County___wadohehdindex_area.shp"
+
+# Laster inn data
+kc_wadoh_map <- st_read(shapefile_path)
+
+# print
+print(head(kc_wadoh_map))
+
+```
+
+## ii. Plukk ut variablene angitt tidligere i oppgaven.
+
+```{r}
+
+# Velg spesifikke variabler fra kc_wadoh_map
+kc_wadoh_map <- kc_wadoh_map %>% 
+  select(
+    GEO_ID_TRT,
+    EHD_percen,   # Environmental Health Index, weighted score many vars
+    linguist_2,   # Pop. age 5+ speaking English less than "very well"
+    poverty_pe,   # Percentage people living in poverty
+    transporta,   # % of income spent on transportation median family in tract
+    unemploy_2,   # Percentage unemployed
+    housing_pe,   # % of households in group "Unaffordable Housing" (>30% inc.)
+    traffic_pe,   # % of pop. near heavy traffic roadways
+    diesel,       # NOx concentration
+    ozone,        # Ozone concentration
+    PM25,         # Concentration of Particulate Matter in air
+    toxic_rele,   # Toxic release from factories
+    hazardous_,   # Hazardous Waste Treatment Storage and Disposal Facilities
+    lead_perce,   # Measure of Lead paint in houses
+    superfund,    # Proximity to contaminated sites on national list
+    facilities,   # Proximity to Risk Management Plan Facilities
+    wastewater,   # Proximity to wastewater facilities
+    sen_pop_pe,   # % population over 65
+    socio_perc    # Score social economic determinants, low best
+  )
+
+# head
+head(kc_wadoh_map)
+
+```
+
+## iii. Transponer kartet til projeksjonen EPSG:2926
+
+```{r}
+
+# Transponerer kartet til projeksjonen EPSG:2926
+kc_wadoh_map <- st_transform(kc_wadoh_map, crs = 2926)
+
+# Sjekk projeksjonen
+st_crs(kc_wadoh_map)
+
+```
+
+## iv. Lag inntektsvariabelen som beskrevet ovenfor. Legg disse til som nye variabler i WADOH King County.
+
+```{r}
+install.packages("foreign")
+library(foreign)
+
+install.packages("dplyr")
+library(dplyr)
+
+# Angir filstien
+file_path <- "~/Desktop/boligøkonomi/acs_b19101_familyincome.dbf"
+
+# Laster data
+income_data <- read.dbf(file_path)
+```
+
+```{r}
+# inntektsgrupper
+income_data <- income_data %>%
+  mutate(
+    low_income = E19101137 + E19101138 + E19101139 + E19101140 + E19101141,
+    mid_income = E19101142 + E19101143 + E19101144 + E19101145 + E19101146,
+    high_income = E19101147 + E19101148 + E19101149 + E19101150 + E19101151
+  )
+
+```
+
+```{r}
+# Beregner total antall familier
+income_data <- income_data %>%
+  mutate(
+    total_families = low_income + mid_income + high_income,
+    perc_low_income = (low_income / total_families) * 100,
+    perc_mid_income = (mid_income / total_families) * 100,
+    perc_high_income = (high_income / total_families) * 100
+  )
+```
+
+```{r}
+
+# CRS for income_data_sf til EPSG:2926
+st_crs(income_data_sf) <- st_crs(kc_wadoh_map)
+
+# spatial join av dataene
+kc_wadoh_map <- st_join(kc_wadoh_map, income_data_sf, by = c("GEO_ID_TRT" = "GEOIDTRT"))
+
+# Konverter income_data til sf
+income_data_sf <- income_data %>%
+  mutate(dummy_geometry = st_sfc(st_point(c(NA_real_, NA_real_)))) %>%
+  st_as_sf()
+
+```
+
+## v. Last ned shape filene tracts10 fra censusSHP mappen (vær nøye med at dere velger 10 varianten)
+
+```{r}
+library(sf)
+
+# Angir filstien
+file_path <- "~/Desktop/boligøkonomi/censusSHP/tracts10.shp"
+
+# Laster data
+tracts10 <- st_read(file_path)
+
+# head
+head(tracts10)
+
+```
+
+## vi. Bruk en `left_join()` for å få dataene fra WADOH King County inn i dette kartet.
+
+```{r}
+# Transformer tracts10 til CRS kc_wadoh_map
+tracts10 <- st_transform(tracts10, st_crs(kc_wadoh_map))
+
+```
+
+```{r}
+library(dplyr)
+library(sf)
+
+# Fjern geometrikolonnen fra `kc_wadoh_map` midlertidig
+kc_wadoh_data <- kc_wadoh_map %>% st_drop_geometry()
+
+# Utfører leftjoin
+tracts10 <- tracts10 %>%
+  left_join(kc_wadoh_data, by = "GEO_ID_TRT")
+
+```
+
+## vii. Transponer begge kartene til EPSG:2926
+
+```{r}
+library(sf)
+
+# Transponer til EPSG:2926
+tracts10 <- st_transform(tracts10, crs = 2926)
+
+# Transponer til EPSG:2926
+kc_wadoh_map <- st_transform(kc_wadoh_map, crs = 2926)
+
+# sjekker kartene
+st_crs(tracts10)
+st_crs(kc_wadoh_map)
+
+```
+
+# 3. Gjør en «spatial join» av husdata med tracts10
+
+## i. Sjekk områdevariablene fra WADOH vha. summary for tracts10
+
+```{r}
+# Sjekk områdevariablene fra WADOH for tracts10
+summary(tracts10)
+
+```
+
+## ii. En observasjon fra tracts10 har bare NA for områdevariablene. Dropp denne.
+
+```{r}
+library(tidyr)
+
+# Fjern rader med kun NA-verdier
+tracts10 <- tracts10 %>%
+  drop_na(any_of(c("EHD_percen", "linguist_2", "poverty_pe", "transporta", 
+                   "unemploy_2", "housing_pe", "traffic_pe", "diesel", 
+                   "ozone", "PM25", "toxic_rele", "hazardous_", 
+                   "lead_perce", "superfund", "facilities", 
+                   "wastewater", "sen_pop_pe", "socio_perc")))
+
+```
+
+## iii. Lag en faktor-variabel av år og måned ut fra Date, kall den year_month.
+
+```{r}
+names(kc_house_sf_2926)
+
+```
+
+```{r}
+
+# faktorvariabel år og måned
+kc_house_sf_2926 <- kc_house_sf_2926 %>%
+  mutate(year_month = factor(format(date, "%Y-%m")))
+
+```
+
+## iv. Lagre .gpkg filen for husdataene . (Sett opsjonen append=FALSE. Ellers får dere ikke lov til å overskrive filen.)
+
+```{r}
+
+# Lagre husdataene som GeoPackage-fil
+st_write(kc_house_sf_2926, "kc_house_data.gpkg", append = FALSE)
+
+```
