@@ -1,0 +1,55 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+---
+
+# 4. Utfør EDA i GeoDA
+
+**Små og billige:**
+
+![](images/small_cheap.png)
+
+**Store og billige:**
+
+![](images/large_cheap.png)
+
+**Små og dyre:**
+
+![](images/small_exp.png)
+
+**Store og dyre:**
+
+![](images/large_exp.png)
+
+![(fra google maps, 07.11.2024) ](images/clipboard-980221514.png)
+
+# 5. Returner så til Quarto dokumentet.
+
+## 
+i. Gi en kort sammenfatning av funnene fra EDA.
+
+Ved å se på kartene vi fikk fra GeoDA, gjennom å bruke Bivariate Morans I, kan vi se at det er en tendens til at de dyrere boligene ligger rundt storbyen Seattle. Videre ser vi at små og dyre boliger ligger svært sentralt i byen, mens de små og billigere boligene ligger mer spredt i området.
+
+## 
+ii. Definer mint tre hedonske modeller. Ta utgangspunkt i Bishop et
+al. (2020) og diskuter gjerne valgte modeller utfra denne.
+
+### 
+1. En null modell med bare huskarakteristika og tids-dummier
+(year_month)
+
+### 
+2. En modell med huskarakteristika, dist_CBD, relevante tractvariabler og tids-dummier.
+
+### 
+3. En modell med huskarakteristika, dist_CBD, EHD indeks
+(eventuelt inntektsvariabel) og tids-dummier.
+
+## 
+iii. Rapporter de tre modellen i en regresjonstabell (se eksemplet med
+modelsummary() og flextable ovenfor). Bruk robuste standard errors. Rapporter t-verdien som er det vanligste innen økonometri.
+
+## 
+iv. Test og diskuter hvilken modell som er best. (Ta gjerne også en
+titt på plot())
