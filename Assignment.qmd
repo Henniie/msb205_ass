@@ -1,0 +1,363 @@
+---
+title: "Assignment MSB205"
+format: html
+editor: visual
+author: Henriette Hansen & Anine Therese Karlsen
+---
+
+```{r}
+#| label: setup 
+#| echo: false
+#| output: false
+
+library(tidyverse)
+library(huxtable)
+library(dplyr)
+library(sf)
+library(spdep)
+library(spatialreg)
+library(lmtest)
+library(sandwich)
+library(Matrix)
+library(lubridate)
+library(here)
+library(tmap)
+library(sp)
+library(units)
+library(car)
+library(foreign)
+library(flextable)
+library(modelsummary)
+```
+
+# 1. Last ned *House Sales King County, USA* fra Kaggle
+
+### Definisjoner på de ulike variablene:
+
+**id** - Unique ID for each home sold\
+**date** - Date of the home sale\
+**price** - Price of each home sold\
+**bedrooms** - Number of bedrooms\
+**bathrooms** - Number of bathrooms, where .5 accounts for a room with a toilet but no shower\
+**sqft_living** - Square footage of the apartments interior living space\
+**sqft_lot** - Square footage of the land space\
+**floors** - Number of floors\
+**waterfront** - A dummy variable for whether the apartment was overlooking the waterfront or not\
+**view** - An index from 0 to 4 of how good the view of the property was\
+**condition** - An index from 1 to 5 on the condition of the apartment,\
+**grade** - An index from 1 to 13, where 1-3 falls short of building construction and design, 7 has an average level of construction and design, and 11-13 have a high quality level of construction and design.\
+**sqft_above** - The square footage of the interior housing space that is above ground level\
+**sqft_basement** - The square footage of the interior housing space that is below ground level\
+**yr_built** - The year the house was initially built\
+**yr_renovated** - The year of the house’s last renovation\
+**zipcode** - What zipcode area the house is in\
+**lat** - Lattitude\
+**long** - Longitude\
+**sqft_living15** - The square footage of interior housing living space for the nearest 15 neighbors\
+**sqft_lot15** - The square footage of the land lots of the nearest 15 neighbors
+
+```{r}
+#| echo: false
+#| output: false
+
+# Les .csv filen med House Sales King County inn i R
+kc_house_data <- read.csv("MapsData/kc_house_data.csv")
+
+# Konverter date-kolonnen til datoformat
+kc_house_data$date <- as.Date(kc_house_data$date, format = "%Y%m%dT000000")
+
+# Sorter salgene «descending» etter dato, siste først (dvs. mai 2015, april 2015 osv.)
+kc_house_data_sorted <- kc_house_data %>%
+  arrange(desc(date))
+
+# Bruk dplyr::distinct() til å velge siste salg der vi har multiple salg av samme eiendom.
+
+# Sorter datasettet etter dato i synkende rekkefølge og fjern duplikater basert på `id`
+latest_sales <- kc_house_data %>%
+  arrange(desc(date)) %>%
+  distinct(id, .keep_all = TRUE)
+
+# Bruk st_as_sf() til å konvertere house data til et sf objekt vha. long lat og sett til geografisk projeksjon, dvs EPSG:4326.
+
+# Konverter dataene (long og lat)
+kc_house_sf <- st_as_sf(kc_house_data, coords = c("long", "lat"), crs = 4326)
+
+# Konverter sf-objektet til projeksjonen EPSG:2926
+kc_house_sf_2926 <- st_transform(kc_house_sf, crs = 2926)
+
+# Definer koordinatene for Seattles CBD
+seattle_cbd_coords <- data.frame(
+  longitude = -122.3321,
+  latitude = 47.6062
+)
+
+# Konverter til sf-objekt med geografisk projeksjon (EPSG:4326)
+seattle_cbd_sf <- st_as_sf(seattle_cbd_coords, coords = c("longitude", "latitude"), crs = 4326)
+
+# Konverter dette punktet til EPSG:2926. Finn avstanden mellom dette punktet og samtlige hus i datasettet i luftlinje. Konverter avstandene til km og legg dem i variabelen dest_CBD i kartet med husdata.
+
+# konverterer til EPSG:2926
+seattle_cbd_sf_2926 <- st_transform(seattle_cbd_sf, crs = 2926)
+
+# Beregner avstanden i meter mellom Seattle CBD og samtlige hus
+kc_house_sf_2926 <- kc_house_sf_2926 %>%
+  mutate(dest_CBD = st_distance(geometry, seattle_cbd_sf_2926))
+
+# Konverter avstand fra meter til kilometer
+kc_house_sf_2926 <- kc_house_sf_2926 %>%
+  mutate(dest_CBD = as.numeric(dest_CBD) / 1000)  # Konverter til kilometer
+```
+
+# 2. Last ned *WADOH Environmental Health Disparities Index Calculated for King County*
+
+```{r}
+#| echo: false
+#| output: false
+
+# Les inn .shp filen WADOH King County.
+kc_wadoh_map <- st_read("MapsData/WADOH_Environmental_Health_Disparities_Index_Calculated_for_King_County___wadohehdindex_area.shp")
+
+# Velg spesifikke variabler fra kc_wadoh_map
+kc_wadoh_map <- kc_wadoh_map %>% 
+  select(
+    GEO_ID_TRT,
+    EHD_percen,   # Environmental Health Index, weighted score many vars
+    linguist_2,   # Pop. age 5+ speaking English less than "very well"
+    poverty_pe,   # Percentage people living in poverty
+    transporta,   # % of income spent on transportation median family in tract
+    unemploy_2,   # Percentage unemployed
+    housing_pe,   # % of households in group "Unaffordable Housing" (>30% inc.)
+    traffic_pe,   # % of pop. near heavy traffic roadways
+    diesel,       # NOx concentration
+    ozone,        # Ozone concentration
+    PM25,         # Concentration of Particulate Matter in air
+    toxic_rele,   # Toxic release from factories
+    hazardous_,   # Hazardous Waste Treatment Storage and Disposal Facilities
+    lead_perce,   # Measure of Lead paint in houses
+    superfund,    # Proximity to contaminated sites on national list
+    facilities,   # Proximity to Risk Management Plan Facilities
+    wastewater,   # Proximity to wastewater facilities
+    sen_pop_pe,   # % population over 65
+    socio_perc    # Score social economic determinants, low best
+  )
+
+# Transponerer kartet til projeksjonen EPSG:2926
+kc_wadoh_map <- st_transform(kc_wadoh_map, crs = 2926)
+
+# Lag inntektsvariabelen som beskrevet. Legg disse til som nye variabler i WADOH King County.
+
+# Laster data
+income_data <- read.dbf("MapsData/acs_b19101_familyincome.dbf")
+
+# inntektsgrupper
+income_data <- income_data %>%
+  mutate(
+    low_income = E19101137 + E19101138 + E19101139 + E19101140 + E19101141,
+    mid_income = E19101142 + E19101143 + E19101144 + E19101145 + E19101146,
+    high_income = E19101147 + E19101148 + E19101149 + E19101150 + E19101151
+  )
+
+# Beregner total antall familier
+income_data <- income_data %>%
+  mutate(
+    total_families = low_income + mid_income + high_income,
+    perc_low_income = (low_income / total_families) * 100,
+    perc_mid_income = (mid_income / total_families) * 100,
+    perc_high_income = (high_income / total_families) * 100
+  )
+
+# Konverter income_data til sf
+income_data_sf <- income_data %>%
+  mutate(dummy_geometry = st_sfc(st_point(c(NA_real_, NA_real_)))) %>%
+  st_as_sf()
+
+# CRS for income_data_sf til EPSG:2926
+st_crs(income_data_sf) <- st_crs(kc_wadoh_map)
+
+# spatial join av dataene
+kc_wadoh_map <- st_join(kc_wadoh_map, income_data_sf, by = c("GEO_ID_TRT" = "GEOIDTRT"))
+
+# Last ned shape filene tracts10 fra censusSHP mappen
+
+# Laster data
+tracts10 <- st_read("MapsData/censusSHP/tracts10.shp")
+
+# Bruk en left_join() for å få dataene fra WADOH King County inn i dette kartet.
+
+# Transformer tracts10 til CRS kc_wadoh_map
+tracts10 <- st_transform(tracts10, st_crs(kc_wadoh_map))
+
+# Fjern geometrikolonnen fra `kc_wadoh_map` midlertidig
+kc_wadoh_data <- kc_wadoh_map %>% st_drop_geometry()
+
+# Utfører leftjoin
+tracts10 <- tracts10 %>%
+  left_join(kc_wadoh_data, by = "GEO_ID_TRT")
+
+# Transponer til EPSG:2926
+tracts10 <- st_transform(tracts10, crs = 2926)
+
+# Transponer til EPSG:2926
+kc_wadoh_map <- st_transform(kc_wadoh_map, crs = 2926)
+
+# sjekker kartene
+st_crs(tracts10)
+st_crs(kc_wadoh_map)
+```
+
+# 3. Gjør en «spatial join» av husdata med tracts10
+
+```{r}
+#| echo: false
+#| output: false
+
+# Sjekk områdevariablene fra WADOH for tracts10
+summary(tracts10)
+
+# Fjern rader med kun NA-verdier
+tracts10 <- tracts10 %>%
+  drop_na(any_of(c("EHD_percen", "linguist_2", "poverty_pe", "transporta", 
+                   "unemploy_2", "housing_pe", "traffic_pe", "diesel", 
+                   "ozone", "PM25", "toxic_rele", "hazardous_", 
+                   "lead_perce", "superfund", "facilities", 
+                   "wastewater", "sen_pop_pe", "socio_perc")))
+
+# Lag en faktor-variabel av år og måned ut fra Date, kall den year_month.
+
+names(kc_house_sf_2926)
+
+# faktorvariabel år og måned
+kc_house_sf_2926 <- kc_house_sf_2926 %>%
+  mutate(year_month = factor(format(date, "%Y-%m")))
+
+
+#Spatial join mellom husdata og områdedata
+house_data_with_tracts <- st_join(kc_house_sf_2926, tracts10)
+
+house_data_with_tracts <- house_data_with_tracts %>%
+  mutate(unique_id = row_number()) 
+
+# Lagre husdataene som GeoPackage-fil
+st_write(house_data_with_tracts, "house_data_with_tracts.gpkg", append = FALSE)
+```
+
+# 4. Utfør EDA i GeoDA
+
+**Små og billige:**
+
+![](images/clipboard-1585496050.png)
+
+**Store og billige:**
+
+![](images/clipboard-2876250081.png)
+
+**Små og dyre:**
+
+![](images/clipboard-544686260.png)
+
+**Store og dyre:**
+
+![](images/clipboard-1580898626.png)
+
+![(fra google maps, 07.11.2024)](images/clipboard-980221514.png){alt="(fra google maps, 07.11.2024)"}
+
+# 5. Returner så til Quarto dokumentet.
+
+## Gi en kort sammenfatning av funnene fra EDA.
+
+Ved å se på kartene vi fikk fra GeoDA, gjennom å bruke Bivariate Morans I, kan vi se at det er en tendens til at de dyrere boligene ligger rundt storbyen Seattle samt rundt Bellevue og Redmond. Videre ser vi at små og dyre boliger ligger svært sentralt i byene, mens de små og billigere boligene ligger mer spredt i området. Store og dyre boliger ligger også i nærheten til byene, mens store og billige boliger er mer desentraliserte. Det er størst konsentrasjon av små og dyre boliger i og rundt de største byene, mens store og dyre boliger ligger nærme, men allikevel mer spredt.
+
+## Definer mint tre hedonske modeller. Ta utgangspunkt i Bishop et al. (2020) og diskuter gjerne valgte modeller utfra denne.
+
+Vi har valgt å definere våre tre modeller slik:
+
+Modell 1: Grunnmodell som kun inkluderer boligkarakteristika samt tids-dummyvariabler.
+
+Modell 2: En utvidet modell fra grunnmodellen som også inkluderer avstand til CBD og andre relevante tractvariabler.
+
+Modell 3: En modell som bygger på grunnmodellen, men som også inkluderer avstand til CBD, samt EHD indeksen (Environmental Health Disparities Index).
+
+Vi bruker i alle modellene en log-log modell. Dette betyr at vi tolker koeffisientene som elastisiteter, som betyr at en prosentvis endring i størrelse gir en prosentvis endring i pris.
+
+## Rapporter de tre modellen i en regresjonstabell (se eksemplet med modelsummary() og flextable ovenfor). Bruk robuste standard errors. Rapporter t-verdien som er det vanligste innen økonometri.
+
+```{r}
+#| echo: false
+
+# Modell 1: Nullmodell med huskarakteristika og tids-dummier (year_month)
+mod1 <- lm(log(price) ~ log(sqft_living) + bedrooms + bathrooms + year_month, data = house_data_with_tracts)
+
+# Modell 2: Legger til dist_CBD og relevante områdevariabler (tracts variabler)
+mod2 <- lm(log(price) ~ log(sqft_living) + bedrooms + bathrooms + dest_CBD +
+             poverty_pe + housing_pe + socio_perc + year_month, data = house_data_with_tracts)
+
+# Modell 3: Bruker huskarakteristika, dist_CBD, og EHD-indeksen
+mod3 <- lm(log(price) ~ log(sqft_living) + bedrooms + bathrooms + dest_CBD +
+             EHD_percen + year_month, data = house_data_with_tracts)
+
+# Oppsummeringstabell med robuste standardfeil og t-verdier
+modelsummary(
+  list(
+    `Modell 1` = mod1,
+    `Modell 2` = mod2,
+    `Modell 3` = mod3
+  ),
+  statistic = "statistic",
+  vcov = "HC3",  
+  output = "flextable"
+) %>%
+  theme_booktabs() %>%
+  line_spacing(space = 0.3, part = "body")
+```
+
+## Test og diskuter hvilken modell som er best
+
+**Modell 1:**
+
+Vi ser utifra analysen at intercept og log(sqt_living) har positive og signifikante koeffisienter; dette tyder på større boliger er dyrere. Vi ser også at antall soverom eller bad ikke påvirker prisen i modellen.
+
+**Modell 2:**
+
+Vi har i denne modellen inkludert avstand til CBD, som vi ser har en negativ og signifikant innvirkning, dette kan bety at boliger nærme CBD er dyrere. poverty\_ pe og socio_perc har negative effekter, noe som kan tyde på at boliger i områder med mer fattigdom eller sosioøkonomiske problemer er billigere. Housing_pe er positiv, men har lav t-verdi, dette kan bety at denne ikke har noe særlig å si for boligpriser.
+
+**Modell 3:**
+
+I denne modellen ser vi EHD indeksen har en negativ koeffisient, noe som kan tyde på at dårligere miljøforhold gir lavere boligpriser.
+
+**Sammenligning:**
+
+Det er modell 3 som har høyest R2 og justert R2, noe som kan tyde på at denne modellen forklarer mest varians i boligprisene. I modell 3 inkluderer vi også EHD indeksen, som fanger opp miljøfaktorer som er signifikante faktorer for boligprisene. AIC og BIC er lavest for modell 3, noe som viser at modell 3 også er den beste modellen til å balansere mellom modellens tilpasningsevne og kompleksitet.
+
+Til å konkludere, kan modell 3 se ut til å være den beste modellen. Den økonomiske relevansen for EHD indeksen stemmer også med hedonisk pristeori, hvor boligprisene også reflekterer stedbaserte miljø- og sosioøkonomiske faktorer.
+
+# 6. Bruk en simultan test på tids-dummiene
+
+```{r}
+#| echo: false
+
+# Test om alle year_month-koeffisienter er lik 0
+test_result <- linearHypothesis(mod3, 
+                                c("year_month2014-06 = 0",
+                                  "year_month2014-07 = 0",
+                                  "year_month2014-08 = 0",
+                                  "year_month2014-09 = 0",
+                                  "year_month2014-10 = 0",
+                                  "year_month2014-11 = 0",
+                                  "year_month2014-12 = 0",
+                                  "year_month2015-01 = 0",
+                                  "year_month2015-02 = 0",
+                                  "year_month2015-03 = 0",
+                                  "year_month2015-04 = 0",
+                                  "year_month2015-05 = 0"),
+                                white.adjust = "hc3")
+
+print(test_result)
+```
+
+Med denne testen, ønsker vi å se om tids-dummyene samlet sett har en signifikant effekt på boligprisene.
+
+F-verdien er 21.969, noe som er relativt høyt. En høy F-verdi indikerer at modellen med dummyene forklarer variasjonen i boligprisene bedre enn modellen uten dummyene.
+
+P-verdien er veldig lav, og under 0.05, og vi kan derfor avvise nullhypotesen om at alle tids-dummy koeffisientene er lik null.
+
+Vi kan utifra dette konkludere med at tids-dummyene har en signifikant samlet effekt på boligprisene. Dette betyr at de bidrar til å forklare variasjonene i prisene, og bør derfor inkluderes i modellen. Grunnen til dette kan være at prisene påvirkes av tidsbestemte faktorer som etterspørsel og markedsforhold i forskjellige måneder eller år.

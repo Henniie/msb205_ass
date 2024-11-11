@@ -22,34 +22,58 @@ editor: visual
 
 ![](images/large_exp.png)
 
-![(fra google maps, 07.11.2024) ](images/clipboard-980221514.png)
+![(fra google maps, 07.11.2024)](images/clipboard-980221514.png)
 
 # 5. Returner så til Quarto dokumentet.
 
 ## 
-i. Gi en kort sammenfatning av funnene fra EDA.
 
-Ved å se på kartene vi fikk fra GeoDA, gjennom å bruke Bivariate Morans I, kan vi se at det er en tendens til at de dyrere boligene ligger rundt storbyen Seattle. Videre ser vi at små og dyre boliger ligger svært sentralt i byen, mens de små og billigere boligene ligger mer spredt i området.
+i.  Gi en kort sammenfatning av funnene fra EDA.
+
+Ved å se på kartene vi fikk fra GeoDA, gjennom å bruke Bivariate Morans I, kan vi se at det er en tendens til at de dyrere boligene ligger rundt storbyen Seattle. Videre ser vi at små og dyre boliger ligger svært sentralt i byen, mens de små og billigere boligene ligger mer spredt i området. Store og dyre boliger ligger også i nærheten til byen (i pendleravstand, kan tyde på at de som bor her pendler inn til Seattle for jobb), mens store og billige boliger er mer desentraliserte.
 
 ## 
-ii. Definer mint tre hedonske modeller. Ta utgangspunkt i Bishop et
-al. (2020) og diskuter gjerne valgte modeller utfra denne.
+
+ii. Definer mint tre hedonske modeller. Ta utgangspunkt i Bishop et al. (2020) og diskuter gjerne valgte modeller utfra denne.
+
+Ut ifra artikkelen fra Bishop et al. (2020), har vi valgt følgende modeller:
+
+1.  En enkel lineær modell som fanger opp grunnleggende huskarakteristika.
+2.  En modell med en kvadratisk tilnærming som kan vise oss ikke-lineære sammenhenger, kan være nyttig å bruke når vi i denne modellen inkluderer distanse fra CBD og tractvariabler.
+3.  For den siste modellen skal vi bruke en semi-parametrisk modell, denne gir oss noe mer fleksibilitet til å modellere selv om effektene fra faktorer (som EHD) er svært uforutsigbare.
 
 ### 
-1. En null modell med bare huskarakteristika og tids-dummier
-(year_month)
+
+1.  En null modell med bare huskarakteristika og tids-dummier (year_month)
+
+Pris = α + β1​Størrelse + β2​Antall_rom + β3​Byggeår + δyear_month ​+ ϵ
 
 ### 
-2. En modell med huskarakteristika, dist_CBD, relevante tractvariabler og tids-dummier.
 
-### 
-3. En modell med huskarakteristika, dist_CBD, EHD indeks
+2.  En modell med huskarakteristika, dist_CBD, relevante tractvariabler og tids-dummier.
+
+Pris = α + β1​Størrelse + β2​Antall_rom + β3​Byggeår + β4​dist_CBD + β5​dist_CBD2 + β6​Tract_variabler + δyear_month​ + ϵ
+
+### 3. En modell med huskarakteristika, dist_CBD, EHD indeks
+
 (eventuelt inntektsvariabel) og tids-dummier.
 
-## 
-iii. Rapporter de tre modellen i en regresjonstabell (se eksemplet med
-modelsummary() og flextable ovenfor). Bruk robuste standard errors. Rapporter t-verdien som er det vanligste innen økonometri.
+Pris = α + β1​Størrelse + β2​Antall_rom + β3​Byggeår + β4​dist_CBD + f(EHD_indeks) + δyear_month ​+ ϵ
 
 ## 
-iv. Test og diskuter hvilken modell som er best. (Ta gjerne også en
-titt på plot())
+
+iii. Rapporter de tre modellen i en regresjonstabell (se eksemplet med modelsummary() og flextable ovenfor). Bruk robuste standard errors. Rapporter t-verdien som er det vanligste innen økonometri.
+
+```{r}
+
+# Last inn pakkene
+library(modelsummary)
+library(flextable)
+library(sandwich)
+library(lmtest)
+
+```
+
+## 
+
+iv. Test og diskuter hvilken modell som er best. (Ta gjerne også en titt på plot())
