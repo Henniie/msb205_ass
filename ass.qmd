@@ -4,30 +4,6 @@ format: html
 editor: visual
 ---
 
-```{r}
-#| ft.arraystretch: 0.9
-#| label: tbl-mod1-and-mod2
-#| tbl-cap: "Table comparing models 1 and 2. T-values are reported in parantheses below coeffisient estimates."
-lm1 <- lm('mpg ~ wt + hp', data = mtcars)
-lm2 <- lm('mpg ~ wt + hp + factor(cyl)', data = mtcars)
-lm3 <- lm('mpg ~ wt + hp + factor(cyl) + factor(am)', data = mtcars)
-modelsummary(
-  # Bruker her named list for å kunne sette egne navn
-  # på modellene. Må ha ticks siden mellomrom i navnene.
-  list(
-    `Modell 1` = lm1, 
-    `Modell 2` = lm2,
-    `Modell 3` = lm3
-    ), 
-  # neste linje sørger for t-verdier istedenfor std. error
-  statistic = "statistic",
-  stars = TRUE,
-  output = "flextable"
-  ) %>% 
-  theme_booktabs() |> 
-  line_spacing(space = 0.3, part = "body")
-```
-
 # 1.Last ned *House Sales King County, USA* fra Kaggle
 
 ## i. Sjekk definisjonen på de ulike variablene
@@ -49,10 +25,10 @@ head(kc_house_data)
 install.packages("dplyr")
 library(dplyr)
 
-# Konverter date-kolonnen til datoformat
+# Konverter date kolonnen til datoformat
 kc_house_data$date <- as.Date(kc_house_data$date, format = "%Y%m%dT000000")
 
-# Sorter salgene «descending» etter dato, siste først (dvs. mai 2015, april 2015 osv.)
+# Sorter salgene etter dato
 kc_house_data_sorted <- kc_house_data %>%
   arrange(desc(date))
 
@@ -65,7 +41,7 @@ head(kc_house_data_sorted)
 
 ```{r}
 
-# Sorter datasettet etter dato i synkende rekkefølge og fjern duplikater basert på `id`
+# Sorter datasettet etter dato og fjern duplikater basert på `id`
 latest_sales <- kc_house_data %>%
   arrange(desc(date)) %>%
   distinct(id, .keep_all = TRUE)
@@ -84,7 +60,7 @@ library(sf)
 
 ```{r}
 
-# Konverter dataene (long og lat)
+# Konverter dataene
 kc_house_sf <- st_as_sf(kc_house_data, coords = c("long", "lat"), crs = 4326)
 
 # print
@@ -95,7 +71,7 @@ print(kc_house_sf)
 ## vi. Konverter dette sf objektet så til projeksjonen EPSG:2926.
 
 ```{r}
-# Konverter sf-objektet til projeksjonen EPSG:2926
+# Konverter sf objektet til projeksjonen EPSG:2926
 kc_house_sf_2926 <- st_transform(kc_house_sf, crs = 2926)
 
 # print
@@ -145,7 +121,7 @@ head(kc_house_sf_2926)
 
 library(sf)
 
-# Les inn shapefilen på nytt
+# Laster shapefilen
 kc_wadoh_map <- st_read("MapsData/WADOH_Environmental_Health_Disparities_Index_Calculated_for_King_County___wadohehdindex_area.shp")
 
 # sjekker kolonnene
@@ -160,7 +136,7 @@ names(kc_wadoh_map)
 
 ```{r}
 
-# Velg spesifikke variabler fra kc_wadoh_map
+# Velger spesifikke variabler fra kc_wadoh_map
 kc_wadoh_map <- kc_wadoh_map %>% 
   select(
     GEO_ID_TRT,
@@ -234,7 +210,7 @@ income_data <- income_data %>%
 ```
 
 ```{r}
-# Beregner total antall familier
+# Total antall familier
 income_data <- income_data %>%
   mutate(
     total_families = low_income + mid_income + high_income,
@@ -252,7 +228,7 @@ library(dplyr)
 # CRS for income_data_sf til EPSG:2926
 st_crs(income_data_sf) <- st_crs(kc_wadoh_map)
 
-# spatial join av dataene
+# spatial join
 kc_wadoh_map <- st_join(kc_wadoh_map, income_data_sf, by = c("GEO_ID_TRT" = "GEOIDTRT"))
 
 # Konverter income_data til sf
@@ -290,10 +266,10 @@ tracts10 <- st_transform(tracts10, st_crs(kc_wadoh_map))
 library(dplyr)
 library(sf)
 
-# Fjern geometrikolonnen fra `kc_wadoh_map` midlertidig
+# Fjern geometrikolonnen fra `kc_wadoh_map`
 kc_wadoh_data <- kc_wadoh_map %>% st_drop_geometry()
 
-# Utfører leftjoin
+# leftjoin
 tracts10 <- tracts10 %>%
   left_join(kc_wadoh_data, by = "GEO_ID_TRT")
 
@@ -307,7 +283,7 @@ library(sf)
 # Transponer til EPSG:2926
 tracts10 <- st_transform(tracts10, crs = 2926)
 
-# Transponer til EPSG:2926
+# Transponer  til EPSG:2926
 kc_wadoh_map <- st_transform(kc_wadoh_map, crs = 2926)
 
 # sjekker kartene
@@ -331,7 +307,7 @@ summary(tracts10)
 ```{r}
 library(tidyr)
 
-# Fjern rader med kun NA-verdier
+# Fjern NA-verdier
 tracts10 <- tracts10 %>%
   drop_na(any_of(c("EHD_percen", "linguist_2", "poverty_pe", "transporta", 
                    "unemploy_2", "housing_pe", "traffic_pe", "diesel", 
@@ -372,20 +348,19 @@ st_write(kc_house_sf_2926, "kc_house_data.gpkg", append = FALSE)
 ```{r}
 library(sf)
 
-# Laster inn GeoPackage-filen
+# Laster inn data
 kc_house_data_7654 <- st_read("MapsData/kc_house_data_7654.gpkg")
 
-# Sjekker de første radene av dataene
+# head
 head(kc_house_data_7654)
 ```
 
 ## ii. Legg områdevariablene til det reduserte datasettet.
 
 ```{r}
-# Sjekk begge datasettene
+# datasett
 st_crs(kc_house_data_7654)
 st_crs(tracts10)
-
 ```
 
 ```{r}
@@ -393,10 +368,10 @@ st_crs(tracts10)
 kc_house_data_7654 <- st_transform(kc_house_data_7654, crs = 2926)
 tracts10 <- st_transform(tracts10, crs = 2926)
 
-# Legger til områdevariabler
+# områdevariabler
 kc_house_data_with_tracts <- st_join(kc_house_data_7654, tracts10)
 
-# Sjekk variabelnavn
+# variabelnavn
 names(kc_house_data_with_tracts)
 summary(kc_house_data_with_tracts)
 
@@ -405,86 +380,87 @@ summary(kc_house_data_with_tracts)
 
 ## iii. Formuler modellen dere vil bruke. Kjør den som lm (OLS) modell og bruk `lm.morantest()` og `moran.plot()` på residualene for å avgjøre om vi har *uforklarte spatial effects* i residualene.
 
-## iv. Modellen skal inneholde områdevariablene familie inntekt og variabelen som angir etnisitet (rase).
-
-```{r}
-# formel
-mod_formula <- price ~ sqft_living + bedrooms + bathrooms + floors + yr_built + 
-               inc_fam_tot + POC_percen + year_month
-
-# OLS-model
-model_ols <- lm(mod_formula, data = kc_house_data_with_tracts)
-
-# summary
-summary(model_ols)
-```
-
 ```{r}
 install.packages("spdep")
 library(spdep)
+
+# OLS modell
+model_ols <- lm(mod_formula, data = kc_house_data_with_tracts)
+
+# Oppsummering
+summary(model_ols)
+
+# Test for spatial autokorrelasjon
+lm_moran <- lm.morantest(model_ols, listw_k10)
+
+# moran plot
+moran.plot(residuals(model_ols), listw_k10)
+
+# Print morans i test
+print(lm_moran)
+
 ```
 
-```{r}
-# koordinater
-coords <- st_coordinates(kc_house_data_with_tracts)
-
-# 5 nærmeste naboer
-nb <- knn2nb(knearneigh(coords, k = 5))
-listw <- nb2listw(nb, style = "W")
-
-# residualer
-residuals_ols <- residuals(model_ols)
-
-# Moran I-test residualene
-moran_test <- lm.morantest(model_ols, listw)
-print(moran_test)
-```
+## iv. Modellen skal inneholde områdevariablene familieinntekt og variabelen som angir etnisitet (rase).
 
 ```{r}
-# Visualiser romlig autokorrelasjon i residualene
-moran.plot(residuals_ols, listw)
+# formel
+mod_formel <- price ~ sqft_living + bedrooms + bathrooms + floors + yr_built + 
+               inc_fam_tot + POC_percen
+
+model_ols <- lm(mod_formel, data = kc_house_data_with_tracts)
+summary(model_ols)
+
+# lm moran test
+lm_moran_test <- lm.morantest(model_ols, listw_k10)
+print(lm_moran_test)
+
+# Moran plot
+moran.plot(residuals(model_ols), listw_k10)
+
 ```
 
 ## v. Generer vektmatrise ut fra k=3 og k=10 nærmeste naboer
 
 ```{r}
-# Vektmatrise for de 3 nærmeste naboene
-nb_k3 <- knn2nb(knearneigh(coords, k = 3))
-listw_k3 <- nb2listw(nb_k3, style = "W")  # "W" for vektet matrise
+library(spdep)
 
-# Vekmatrise for de 10 nærmeste naboene
+# koordinater fra spatial data
+coords <- st_coordinates(kc_house_data_with_tracts)
+
+# vektmatrise for de 3 nærmeste naboene
+nb_k3 <- knn2nb(knearneigh(coords, k = 3))
+listw_k3 <- nb2listw(nb_k3, style = "W")
+
+# vektmatrise for de 10 nærmeste naboene
 nb_k10 <- knn2nb(knearneigh(coords, k = 10))
 listw_k10 <- nb2listw(nb_k10, style = "W")
+
+# matrisene
+summary(listw_k3)
+summary(listw_k10)
+
 ```
 
 ## vi. Bruk Anselin ([1988](https://msb205.netlify.app/assignment/kc_h24/assignment_text_24#ref-Anselin1988)) sin teknikk med Lagrange Multiplikator test vha. `lm.LMtests()`
 
 ```{r}
-
-# OLS-modell
-model_ols <- lm(mod_formula, data = kc_house_data_with_tracts)
-
-# Vektmatrise for de 3 nærmeste naboene
-listw <- listw_k3  
-
-# Vektmatrise for de 10 nærmeste naboene
-listw <- listw_k10
-```
-
-```{r}
 # LM test
 lm_tests <- lm.LMtests(model_ols, listw, test = "all")
 print(lm_tests)
-
 ```
 
 ## vi. Diskuter hvilken modell (SAR, SEM eller lm (OLS)) som synes å være den beste.
 
-...
+Ved å analysere boligpriser vurderes her romlige avhengigheter, da priser i ett område kan påvirkes av priser i nærliggende områder. En enkel OLS-modell ignorerer slike romlige effekter, noe som kan føre til skjevheter, i dette tilfeller viser moran i-test for OLS at p-verdi er \< 0,05, som indikerer at OLS-modellen ikke klarer å fange opp de romlige avhengighetene i dataene.
+
+SEM modellen viser romlig autokorrelasjon i feilleddene, noe som kan oppstå når det er romlig korrelerte faktorer som ikke er inkludert i modellen. SAR modellen tar hensyn til romlig avhengighet i den avhengige variabelen ved å inkludere en lagget versjon som en forklaringsvariabel. Dette kan være nyttig når boligprisene direkte påvirkes av priser i nærliggende områder.
+
+For boligprisanalyse er det ofte hensiktsmessig å starte med en SAR modell, da boligpriser typisk påvirkes av priser i nærliggende områder. Hvis det fortsatt er romlig autokorrelasjon i residualene etter å ha brukt SAR, kan det være nødvendig å vurdere en SEM modell eller en kombinasjon av begge.
 
 ## vii. Bruk så teknikken med nestede modeller anbefalt av LeSage ([n.d.](https://msb205.netlify.app/assignment/kc_h24/assignment_text_24#ref-lesage)). Diskuter først om vi står overfor et *lokalt* eller *globalt* fenomen. Bruk opsjonen `durban = as.formula(~ variabelnavnene du vil ha impacts for)`. Dette for å slippe impacts for tidsdummiene. Test så de nestede modellne vha. *likelihood ratio test*. Hvilken modell synes å være den beste?
 
-I ett boligmarked kan det være både blanding av lokale og globale effekter. En lokal tilnærming ser på nabolagseffekter, mens globale fenomen er når markedsforholdene påvirker en hel region. I dette tilfellet ... slide 27.
+I ett boligmarked kan det være både blanding av lokale og globale effekter. En lokal tilnærming ser på nabolagseffekter, mens globale fenomen er når markedsforholdene påvirker en hel region. slide 27. Morans i-test viser sterk spatial autokorrelasjon, som støtter romlige interaksjoner som indikerer at det er ett lokalt fenomen.
 
 ```{r}
 install.packages("spatialreg")
@@ -492,19 +468,141 @@ library(spatialreg)
 ```
 
 ```{r}
-# durban formel
-durban_vars <- as.formula(~ sqft_living + bedrooms + bathrooms + floors + yr_built + inc_fam_tot + POC_percen)
+# Formel
+mod_formel2 <- price ~ sqft_living + bedrooms + bathrooms + floors + inc_fam_tot + POC_percen
+```
 
-# SDM modell
-sdm_model <- lagsarlm(mod_formula, data = kc_house_data_with_tracts, listw = listw, type = "Durbin")
+```{r}
+# SDEM modell
+sdem_model <- errorsarlm(mod_formel2, 
+                         data = kc_house_data_with_tracts, 
+                         listw = listw_k10, 
+                         Durbin = TRUE)
 
-summary(sdm_model)
+# SLX modell
+slx_model <- lmSLX(mod_formel2, 
+                   data = kc_house_data_with_tracts, 
+                   listw = listw_k10)
 
+# SEM modell
+sem_model <- errorsarlm(mod_formel2, 
+                        data = kc_house_data_with_tracts, 
+                        listw = listw_k10, 
+                        Durbin = FALSE)
+
+# OLS modellen
+ols_model <- lm(mod_formel2, data = kc_house_data_with_tracts)
+
+# Oppsummere
+summary(sdem_model)
+summary(slx_model)
+summary(sem_model)
+summary(ols_model)
 
 ```
+
+```{r}
+library(lmtest)
+
+# SDEM vs SLX
+lrtest_sdem_slx <- LR.Sarlm(sdem_model, slx_model)
+
+# SDEM vs SEM
+lrtest_sdem_sem <- LR.Sarlm(sdem_model, sem_model)
+
+# SEM vs OLS
+lrtest_sem_ols <- LR.Sarlm(sem_model, ols_model)
+
+# SLX vs OLS
+lrtest_slx_ols <- lmtest::lrtest(slx_model, ols_model)
+
+# Print resultatene
+print("SDEM vs SLX:")
+print(lrtest_sdem_slx)
+
+print("SDEM vs SEM:")
+print(lrtest_sdem_sem)
+
+print("SEM vs OLS:")
+print(lrtest_sem_ols)
+
+print("SLX vs OLS:")
+print(lrtest_slx_ols)
+```
+
+```{r}
+# impacts for SDEM
+sdem_impacts <- impacts(sdem_model, 
+                        listw = listw_k10, 
+                        durbin = as.formula(price ~ sqft_living + bedrooms + bathrooms + 
+                                            floors + yr_built + inc_fam_tot + POC_percen))
+
+summary(sdem_impacts)
+
+# impacts for SLX
+slx_impacts <- impacts(slx_model, 
+                       listw = listw_k10, 
+                       durbin = as.formula(~ sqft_living + bedrooms + bathrooms + 
+                                           floors + yr_built + inc_fam_tot + POC_percen))
+
+summary(slx_impacts)
+```
+
+SDEM modellen synes å være den beste basert på både likelihood ratio test og impacts test da den er signifikant for flere variabler, slik som sqdr_living, bedrooms, P0C_percen og inc_fam tot. Dette gir også nformasjon om mer indirekte effekter som lokale spillover effekter.
 
 ## viii. For alternativet k=10 (10 nærmeste naboer). Bruk `moran.plot()` på residualene fra de ulike modellene for å illustrere hvor godt hver modell fjerner «spatial effects» fra residualene.
 
 ```{r}
+library(spdep)
 
+# Koordinat
+coords <- st_coordinates(kc_house_data_with_tracts)
+
+# 10 nærmeste naboer
+nb_k10 <- knn2nb(knearneigh(coords, k = 10))
+
+# vektmatrise
+listw_k10 <- nb2listw(nb_k10, style = "W")
+
+```
+
+```{r}
+# OLS modell
+ols_model <- lm(mod_formula, data = kc_house_data_with_tracts)
+
+# residualer
+residuals_ols <- residuals(ols_model)
+
+moran.plot(residuals_ols, listw_k10, main = "Morans OLS test")
+```
+
+```{r}
+# SAR modell
+sar_model <- lagsarlm(mod_formula, data = kc_house_data_with_tracts, listw = listw_k10, type = "lag")
+
+# Residualer
+residuals_sar <- residuals(sar_model)
+
+moran.plot(residuals_sar, listw_k10, main = "Morans i test SAR")
+
+```
+
+```{r}
+# SEM
+sem_model <- errorsarlm(mod_formula, data = kc_house_data_with_tracts, listw = listw_k10)
+
+# Residualer
+residuals_sem <- residuals(sem_model)
+
+moran.plot(residuals_sem, listw_k10, main = "Morans i test SEM")
+```
+
+```{r}
+# SDM
+sdm_model <- lagsarlm(mod_formula, data = kc_house_data_with_tracts, listw = listw_k10, type = "Durbin")
+
+# Residualer
+residuals_sdm <- residuals(sdm_model)
+
+moran.plot(residuals_sdm, listw_k10, main = "Moran i test SDM")
 ```
