@@ -606,3 +606,5 @@ residuals_sdm <- residuals(sdm_model)
 
 moran.plot(residuals_sdm, listw_k10, main = "Moran i test SDM")
 ```
+
+\-\--
