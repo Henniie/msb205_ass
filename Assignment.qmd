@@ -32,30 +32,6 @@ library(modelsummary)
 
 # 1. Last ned *House Sales King County, USA* fra Kaggle
 
-### Definisjoner på de ulike variablene:
-
-**id** - Unique ID for each home sold\
-**date** - Date of the home sale\
-**price** - Price of each home sold\
-**bedrooms** - Number of bedrooms\
-**bathrooms** - Number of bathrooms, where .5 accounts for a room with a toilet but no shower\
-**sqft_living** - Square footage of the apartments interior living space\
-**sqft_lot** - Square footage of the land space\
-**floors** - Number of floors\
-**waterfront** - A dummy variable for whether the apartment was overlooking the waterfront or not\
-**view** - An index from 0 to 4 of how good the view of the property was\
-**condition** - An index from 1 to 5 on the condition of the apartment,\
-**grade** - An index from 1 to 13, where 1-3 falls short of building construction and design, 7 has an average level of construction and design, and 11-13 have a high quality level of construction and design.\
-**sqft_above** - The square footage of the interior housing space that is above ground level\
-**sqft_basement** - The square footage of the interior housing space that is below ground level\
-**yr_built** - The year the house was initially built\
-**yr_renovated** - The year of the house’s last renovation\
-**zipcode** - What zipcode area the house is in\
-**lat** - Lattitude\
-**long** - Longitude\
-**sqft_living15** - The square footage of interior housing living space for the nearest 15 neighbors\
-**sqft_lot15** - The square footage of the land lots of the nearest 15 neighbors
-
 ```{r}
 #| echo: false
 #| output: false
@@ -259,7 +235,7 @@ st_write(house_data_with_tracts, "house_data_with_tracts.gpkg", append = FALSE)
 
 ![](images/clipboard-1580898626.png)
 
-![(fra google maps, 07.11.2024)](images/clipboard-980221514.png){alt="(fra google maps, 07.11.2024)"}
+![(fra google maps, 07.11.2024)](images/clipboard-980221514.png)
 
 # 5. Returner så til Quarto dokumentet.
 
@@ -361,3 +337,373 @@ F-verdien er 21.969, noe som er relativt høyt. En høy F-verdi indikerer at mod
 P-verdien er veldig lav, og under 0.05, og vi kan derfor avvise nullhypotesen om at alle tids-dummy koeffisientene er lik null.
 
 Vi kan utifra dette konkludere med at tids-dummyene har en signifikant samlet effekt på boligprisene. Dette betyr at de bidrar til å forklare variasjonene i prisene, og bør derfor inkluderes i modellen. Grunnen til dette kan være at prisene påvirkes av tidsbestemte faktorer som etterspørsel og markedsforhold i forskjellige måneder eller år.
+
+# 7.Spatial Regressions
+
+```{r}
+#| echo: false
+#| output: false 
+
+# Last gruppens utvalg fra relevant .gpkg fil (tallene er seed verdiene som er brukt for å genererer utvalgene)
+
+# Laster inn data
+kc_house_data_7654 <- st_read("MapsData/kc_house_data_7654.gpkg")
+
+# Legg områdevariablene til det reduserte datasettet.
+
+# datasett
+st_crs(kc_house_data_7654)
+st_crs(tracts10)
+
+# Transformerer datasettene
+kc_house_data_7654 <- st_transform(kc_house_data_7654, crs = 2926)
+tracts10 <- st_transform(tracts10, crs = 2926)
+
+# områdevariabler
+kc_house_data_with_tracts <- st_join(kc_house_data_7654, tracts10)
+
+# variabelnavn
+names(kc_house_data_with_tracts)
+summary(kc_house_data_with_tracts)
+```
+
+## Formuler modellen dere vil bruke. Kjør den som lm (OLS) modell og bruk lm.morantest() og moran.plot() på residualene for å avgjøre om vi har uforklarte spatial effects i residualene.
+
+```{r}
+#| echo: false
+
+mod_formula <- price ~ sqft_living + bedrooms + dist_cbd
+
+# OLS modell
+model_ols <- lm(mod_formula, data = kc_house_data_with_tracts)
+
+# Oppsummering
+summary(model_ols)
+
+# Opprett naboer basert på k-nærmeste naboer (k=10)
+nb_k10 <- knn2nb(knearneigh(st_coordinates(kc_house_data_with_tracts), k = 10))
+
+# Konverter naboobjektet til en spatial weights list
+listw_k10 <- nb2listw(nb_k10, style = "W")
+
+# Test for spatial autokorrelasjon
+lm_moran <- lm.morantest(model_ols, listw_k10)
+
+# moran plot
+moran.plot(residuals(model_ols), listw_k10)
+
+# Print morans i test
+print(lm_moran)
+```
+
+## Modellen skal inneholde områdevariablene familieinntekt og variabelen som angir etnisitet (rase).
+
+```{r}
+#| echo: false
+
+# formel
+mod_formel <- price ~ sqft_living + bedrooms + bathrooms + floors + yr_built + 
+               inc_fam_tot + POC_percen
+
+model_ols <- lm(mod_formel, data = kc_house_data_with_tracts)
+summary(model_ols)
+
+# lm moran test
+lm_moran_test <- lm.morantest(model_ols, listw_k10)
+print(lm_moran_test)
+
+# Moran plot
+moran.plot(residuals(model_ols), listw_k10)
+
+```
+
+## Generer vektmatrise ut fra k=3 og k=10 nærmeste naboer
+
+```{r}
+#| echo: false
+#| warning: false
+
+# koordinater fra spatial data
+coords <- st_coordinates(kc_house_data_with_tracts)
+
+# vektmatrise for de 3 nærmeste naboene
+nb_k3 <- knn2nb(knearneigh(coords, k = 3))
+listw_k3 <- nb2listw(nb_k3, style = "W")
+
+# vektmatrise for de 10 nærmeste naboene
+nb_k10 <- knn2nb(knearneigh(coords, k = 10))
+listw_k10 <- nb2listw(nb_k10, style = "W")
+
+# matrisene
+summary(listw_k3)
+summary(listw_k10)
+```
+
+## Bruk Anselin (1988) sin teknikk med Lagrange Multiplikator test vha. lm.LMtests()
+
+```{r}
+#| echo: false
+#| warning: false
+
+# LM test
+lm_tests <- lm.LMtests(model_ols, listw_k3, test = "all")
+print(lm_tests)
+```
+
+## Diskuter hvilken modell (SAR, SEM eller lm (OLS)) som synes å være den beste.
+
+Ved å analysere boligpriser vurderes her romlige avhengigheter, da priser i ett område kan påvirkes av priser i nærliggende områder. En enkel OLS-modell ignorerer slike romlige effekter, noe som kan føre til skjevheter, i dette tilfeller viser moran i-test for OLS at p-verdi er \< 0,05, som indikerer at OLS-modellen ikke klarer å fange opp de romlige avhengighetene i dataene.
+
+SEM modellen viser romlig autokorrelasjon i feilleddene, noe som kan oppstå når det er romlig korrelerte faktorer som ikke er inkludert i modellen. SAR modellen tar hensyn til romlig avhengighet i den avhengige variabelen ved å inkludere en lagget versjon som en forklaringsvariabel. Dette kan være nyttig når boligprisene direkte påvirkes av priser i nærliggende områder.
+
+For boligprisanalyse er det ofte hensiktsmessig å starte med en SAR modell, da boligpriser typisk påvirkes av priser i nærliggende områder. Hvis det fortsatt er romlig autokorrelasjon i residualene etter å ha brukt SAR, kan det være nødvendig å vurdere en SEM modell eller en kombinasjon av begge.
+
+## Bruk så teknikken med nestede modeller anbefalt av LeSage ([n.d.](https://msb205.netlify.app/assignment/kc_h24/assignment_text_24#ref-lesage)). Diskuter først om vi står overfor et *lokalt* eller *globalt* fenomen. Bruk opsjonen `durban = as.formula(~ variabelnavnene du vil ha impacts for)`. Dette for å slippe impacts for tidsdummiene. Test så de nestede modellne vha. *likelihood ratio test*. Hvilken modell synes å være den beste?
+
+I ett boligmarked kan det være både blanding av lokale og globale effekter. En lokal tilnærming ser på nabolagseffekter, mens globale fenomen er når markedsforholdene påvirker en hel region. slide 27. Morans i-test viser sterk spatial autokorrelasjon, som støtter romlige interaksjoner som indikerer at det er ett lokalt fenomen.
+
+```{r}
+#| echo: false
+
+# Formel
+mod_formel2 <- price ~ sqft_living + bedrooms + bathrooms + floors + inc_fam_tot + POC_percen
+
+# SDEM modell
+sdem_model <- errorsarlm(mod_formel2, 
+                         data = kc_house_data_with_tracts, 
+                         listw = listw_k10, 
+                         Durbin = TRUE)
+
+# SLX modell
+slx_model <- lmSLX(mod_formel2, 
+                   data = kc_house_data_with_tracts, 
+                   listw = listw_k10)
+
+# SEM modell
+sem_model <- errorsarlm(mod_formel2, 
+                        data = kc_house_data_with_tracts, 
+                        listw = listw_k10, 
+                        Durbin = FALSE)
+
+# OLS modellen
+ols_model <- lm(mod_formel2, data = kc_house_data_with_tracts)
+
+# Oppsummere
+summary(sdem_model)
+summary(slx_model)
+summary(sem_model)
+summary(ols_model)
+```
+
+```{r}
+#| echo: false
+#| warning: false
+
+# SDEM vs SLX
+lrtest_sdem_slx <- LR.Sarlm(sdem_model, slx_model)
+
+# SDEM vs SEM
+lrtest_sdem_sem <- LR.Sarlm(sdem_model, sem_model)
+
+# SEM vs OLS
+lrtest_sem_ols <- LR.Sarlm(sem_model, ols_model)
+
+# SLX vs OLS
+lrtest_slx_ols <- lmtest::lrtest(slx_model, ols_model)
+
+# Print resultatene
+print("SDEM vs SLX:")
+print(lrtest_sdem_slx)
+
+print("SDEM vs SEM:")
+print(lrtest_sdem_sem)
+
+print("SEM vs OLS:")
+print(lrtest_sem_ols)
+
+print("SLX vs OLS:")
+print(lrtest_slx_ols)
+
+# impacts for SDEM
+sdem_impacts <- impacts(sdem_model, 
+                        listw = listw_k10, 
+                        durbin = as.formula(price ~ sqft_living + bedrooms + bathrooms + 
+                                            floors + yr_built + inc_fam_tot + POC_percen))
+
+summary(sdem_impacts)
+
+# impacts for SLX
+slx_impacts <- impacts(slx_model, 
+                       listw = listw_k10, 
+                       durbin = as.formula(~ sqft_living + bedrooms + bathrooms + 
+                                           floors + yr_built + inc_fam_tot + POC_percen))
+
+summary(slx_impacts)
+```
+
+SDEM modellen synes å være den beste basert på både likelihood ratio test og impacts test da den er signifikant for flere variabler, slik som sqdr_living, bedrooms, P0C_percen og inc_fam tot. Dette gir også nformasjon om mer indirekte effekter som lokale spillover effekter.
+
+## For alternativet k=10 (10 nærmeste naboer). Bruk `moran.plot()` på residualene fra de ulike modellene for å illustrere hvor godt hver modell fjerner «spatial effects» fra residualene.
+
+```{r}
+#| echo: false
+#| warning: false
+
+# Koordinat
+coords <- st_coordinates(kc_house_data_with_tracts)
+
+# 10 nærmeste naboer
+nb_k10 <- knn2nb(knearneigh(coords, k = 10))
+
+# vektmatrise
+listw_k10 <- nb2listw(nb_k10, style = "W")
+
+# OLS modell
+ols_model <- lm(mod_formula, data = kc_house_data_with_tracts)
+
+# residualer
+residuals_ols <- residuals(ols_model)
+
+moran.plot(residuals_ols, listw_k10, main = "Morans OLS test")
+
+# SAR modell
+sar_model <- lagsarlm(mod_formula, data = kc_house_data_with_tracts, listw = listw_k10, type = "lag")
+
+# Residualer
+residuals_sar <- residuals(sar_model)
+
+moran.plot(residuals_sar, listw_k10, main = "Morans i test SAR")
+
+# SEM
+sem_model <- errorsarlm(mod_formula, data = kc_house_data_with_tracts, listw = listw_k10)
+
+# Residualer
+residuals_sem <- residuals(sem_model)
+
+moran.plot(residuals_sem, listw_k10, main = "Morans i test SEM")
+
+# SDM
+sdm_model <- lagsarlm(mod_formula, data = kc_house_data_with_tracts, listw = listw_k10, type = "Durbin")
+
+# Residualer
+residuals_sdm <- residuals(sdm_model)
+
+moran.plot(residuals_sdm, listw_k10, main = "Moran i test SDM")
+```
+
+# 8. Diskusjon av resultatene
+
+## Økonomisk tolkning av Hedonisk boligprismodell
+
+```{r}
+#| echo: false
+
+data <- data.frame(
+  attribute = c("Kvadratmeter", "Soverom", "Bad", "Avstand til CBD", "Miljøkvalitet"),
+  marginal_price = c(320, -60013, 61540, -3658, -3539)
+)
+
+ggplot(data, aes(x = attribute, y = marginal_price)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  labs(title = "Hedonisk boligprismodell", x = "Egenskaper", y = "Marginal verdi (kr)") +
+  theme_minimal()
+
+```
+
+Den hedoniske modellen baserer seg på antakelsen om at boligpriser reflekterer summen av egenskapene til boligen og området. For eksempel, variabler som boligstørrelse, antall soverom, avstand til CBD, og miljøfaktorer som forurensning eller fattigdomsrater, påvirker prisen. Modellen gir en måte å kvantifisere hvordan hver av disse egenskapene påvirker verdien.
+
+## Tolkning av koeffisienter
+
+OLS-modellen:
+
+-   Størrelse, positiv, økning i størrelse fører til høyere priser
+
+-   Soverom, negativ, flere soverom gir lavere pris, eller uattraktive boliger har mange soverom
+
+SAR-modellen:
+
+-   Størrelse, direkte positiv effekt på pris.
+
+-   Boliger med flere bad kan påvirke prisen i området positivt, selv om effekten er mindre enn den direkte.
+
+SEM-modellen:
+
+-   Størrelse er også positiv og signifikant her, slik som i OLS-modellen.
+
+-   Bad er positiv, antyder at flere bad øker prisen.
+
+SLX-modellen:
+
+-   Størrelse positiv og signifikant.
+
+-   Nærheten til CBD reduserer prisene i boliger rundt.
+
+SDEM-modellen:
+
+-   Dårligere miljøkvalitet reduserer boligpriser direkte.
+
+-   Flere bad i omkringliggende boliger har en liten positiv innvirkning på prisen.
+
+## Signifikans og rimelighet
+
+Alle valgte koeffisienter er signifikante med p-verdier under 0.05, noe som indikerer at effektene ikke skyldes tilfeldigheter.
+
+Tegnene og størrelsene er rimelige i henhold til hedonisk teori. Størrelse og antall bad øker boligprisen, mens miljøproblemer og avstand til CBD reduserer den.
+
+## Implisitte priser for SAR-modellen
+
+Eksempler på implisitte priser:
+
+-   **Direkte effekt** av størrelse: Økningen i pris for 1 % større bolig er direkte relatert til verdien av kvadratmeter i området.
+
+-   **Indirekte effekt** av antall bad: Nærliggende boliger med flere bad gir små, men positive effekter på prisene i nabolaget.
+
+## Økonomisk tolkning av effektene
+
+-   **Direkte effekter:** Størrelse og antall bad påvirker prisen direkte gjennom boligens egne egenskaper.
+
+-   **Indirekte effekter:** Disse reflekterer hvordan naboegenskaper (f.eks. antall bad) påvirker prisen, som kan skyldes økt attraktivitet i området.
+
+# 9. Oppsummering
+
+I denne oppgaven har vi analysert boligpriser i King County ved hjelp av hedoniske modeller for å forstå hvordan forskjellige egenskaper og miljøforhold påvirker verdien av eiendommer. Arbeidet har omfattet datarensing, romlig analyse og modellering av boligpriser basert på både individuelle boligkarakteristika og områdespesifikke faktorer. Her er en oppsummering av hovedfunnene:
+
+#### Oppsummering
+
+1.  **EDA (Exploratory Data Analysis):**
+
+    -   Bivariate Moran’s I viste klare mønstre i fordelingen av boligpriser:
+
+        -   Små og dyre boliger er konsentrert i sentrale områder som Seattle og Bellevue.
+
+        -   Store og billigere boliger finnes hovedsakelig i mer desentraliserte områder.
+
+    -   Dette indikerer en sterk romlig avhengighet i boligprisene.
+
+2.  **Hedoniske Modeller:**
+
+    -   **Modell 1:** Grunnmodell basert på boligkarakteristika (antall rom, størrelse etc.) og tids-dummyer. Modellen forklarte prisvariasjonen godt, men fanget ikke opp områdespesifikke forhold.
+
+    -   **Modell 2:** Inkluderte avstand til CBD og relevante traktsvariabler (fattigdomsrate, sosioøkonomiske faktorer). Modellen viste at boliger nær CBD og områder med færre sosioøkonomiske utfordringer har høyere verdi.
+
+    -   **Modell 3:** Utvidet Modell 2 med Environmental Health Disparities Index (EHD). Denne modellen hadde høyest forklaringskraft (R2R^2R2) og balanse mellom kompleksitet og ytelse (lavest AIC/BIC).
+
+3.  **Romlige Effekter:**
+
+    -   Analysene viste betydelige romlige avhengigheter i boligprisene. Modellen med spatial autoregressive terms (SAR) reduserte residualene betydelig og forbedret modellens ytelse.
+
+    -   Moran’s I-test på residualene bekreftet at modellene med romlige effekter håndterte geografiske avhengigheter bedre enn standard OLS.
+
+4.  **Tidsvariabler:**
+
+    -   En simultan F-test bekreftet at tids-dummyene var signifikante, noe som tyder på at markedsforhold og sesongvariasjoner påvirker prisene.
+
+#### Konklusjon
+
+Denne oppgaven demonstrerer hvordan boligpriser påvirkes av en kombinasjon av individuelle boligegenskaper, områdespesifikke faktorer og romlige effekter. Spesielt har vi sett at:
+
+-   Modeller som inkluderer miljømessige og sosioøkonomiske forhold (Modell 3) gir en mer realistisk og robust forklaring på prisdannelsen.
+
+-   Spatial regresjon er avgjørende for å håndtere geografiske avhengigheter og oppnå mer nøyaktige resultater.
+
+De beste modellene kan brukes til å informere beslutningstakere, som byplanleggere, politikere og investorer, om hvordan ulike faktorer påvirker boligmarkedet. Dette kan bidra til bedre planlegging og mer rettferdige boligpolitikk. Samlet sett viser resultatene i oppgaven vår at kombinasjonen av hedoniske modeller og romlige analyser er et kraftig verktøy for å forstå og forutsi boligpriser.
