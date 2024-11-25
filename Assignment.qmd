@@ -1,6 +1,9 @@
 ---
 title: "Assignment MSB205"
-format: html
+format: 
+  html: default
+  pdf: 
+    papersize: a4
 editor: visual
 author: Henriette Hansen & Anine Therese Karlsen
 ---
@@ -241,7 +244,10 @@ st_write(house_data_with_tracts, "house_data_with_tracts.gpkg", append = FALSE)
 
 ## Gi en kort sammenfatning av funnene fra EDA.
 
-Ved å se på kartene vi fikk fra GeoDA, gjennom å bruke Bivariate Morans I, kan vi se at det er en tendens til at de dyrere boligene ligger rundt storbyen Seattle samt rundt Bellevue og Redmond. Videre ser vi at små og dyre boliger ligger svært sentralt i byene, mens de små og billigere boligene ligger mer spredt i området. Store og dyre boliger ligger også i nærheten til byene, mens store og billige boliger er mer desentraliserte. Det er størst konsentrasjon av små og dyre boliger i og rundt de største byene, mens store og dyre boliger ligger nærme, men allikevel mer spredt.
+Ved å se på kartene vi fikk fra GeoDA, gjennom å bruke Bivariate Morans I, kan vi se at det er en tendens til at de dyrere boligene ligger rundt storbyen Seattle samt rundt Bellevue og Redmond.
+Videre ser vi at små og dyre boliger ligger svært sentralt i byene, mens de små og billigere boligene ligger mer spredt i området.
+Store og dyre boliger ligger også i nærheten til byene, mens store og billige boliger er mer desentraliserte.
+Det er størst konsentrasjon av små og dyre boliger i og rundt de største byene, mens store og dyre boliger ligger nærme, men allikevel mer spredt.
 
 ## Definer mint tre hedonske modeller. Ta utgangspunkt i Bishop et al. (2020) og diskuter gjerne valgte modeller utfra denne.
 
@@ -253,7 +259,8 @@ Modell 2: En utvidet modell fra grunnmodellen som også inkluderer avstand til C
 
 Modell 3: En modell som bygger på grunnmodellen, men som også inkluderer avstand til CBD, samt EHD indeksen (Environmental Health Disparities Index).
 
-Vi bruker i alle modellene en log-log modell. Dette betyr at vi tolker koeffisientene som elastisiteter, som betyr at en prosentvis endring i størrelse gir en prosentvis endring i pris.
+Vi bruker i alle modellene en log-log modell.
+Dette betyr at vi tolker koeffisientene som elastisiteter, som betyr at en prosentvis endring i størrelse gir en prosentvis endring i pris.
 
 ## Rapporter de tre modellen i en regresjonstabell (se eksemplet med modelsummary() og flextable ovenfor). Bruk robuste standard errors. Rapporter t-verdien som er det vanligste innen økonometri.
 
@@ -290,11 +297,14 @@ modelsummary(
 
 **Modell 1:**
 
-Vi ser utifra analysen at intercept og log(sqt_living) har positive og signifikante koeffisienter; dette tyder på større boliger er dyrere. Vi ser også at antall soverom eller bad ikke påvirker prisen i modellen.
+Vi ser utifra analysen at intercept og log(sqt_living) har positive og signifikante koeffisienter; dette tyder på større boliger er dyrere.
+Vi ser også at antall soverom eller bad ikke påvirker prisen i modellen.
 
 **Modell 2:**
 
-Vi har i denne modellen inkludert avstand til CBD, som vi ser har en negativ og signifikant innvirkning, dette kan bety at boliger nærme CBD er dyrere. poverty\_ pe og socio_perc har negative effekter, noe som kan tyde på at boliger i områder med mer fattigdom eller sosioøkonomiske problemer er billigere. Housing_pe er positiv, men har lav t-verdi, dette kan bety at denne ikke har noe særlig å si for boligpriser.
+Vi har i denne modellen inkludert avstand til CBD, som vi ser har en negativ og signifikant innvirkning, dette kan bety at boliger nærme CBD er dyrere.
+poverty\_ pe og socio_perc har negative effekter, noe som kan tyde på at boliger i områder med mer fattigdom eller sosioøkonomiske problemer er billigere.
+Housing_pe er positiv, men har lav t-verdi, dette kan bety at denne ikke har noe særlig å si for boligpriser.
 
 **Modell 3:**
 
@@ -302,9 +312,12 @@ I denne modellen ser vi EHD indeksen har en negativ koeffisient, noe som kan tyd
 
 **Sammenligning:**
 
-Det er modell 3 som har høyest R2 og justert R2, noe som kan tyde på at denne modellen forklarer mest varians i boligprisene. I modell 3 inkluderer vi også EHD indeksen, som fanger opp miljøfaktorer som er signifikante faktorer for boligprisene. AIC og BIC er lavest for modell 3, noe som viser at modell 3 også er den beste modellen til å balansere mellom modellens tilpasningsevne og kompleksitet.
+Det er modell 3 som har høyest R2 og justert R2, noe som kan tyde på at denne modellen forklarer mest varians i boligprisene.
+I modell 3 inkluderer vi også EHD indeksen, som fanger opp miljøfaktorer som er signifikante faktorer for boligprisene.
+AIC og BIC er lavest for modell 3, noe som viser at modell 3 også er den beste modellen til å balansere mellom modellens tilpasningsevne og kompleksitet.
 
-Til å konkludere, kan modell 3 se ut til å være den beste modellen. Den økonomiske relevansen for EHD indeksen stemmer også med hedonisk pristeori, hvor boligprisene også reflekterer stedbaserte miljø- og sosioøkonomiske faktorer.
+Til å konkludere, kan modell 3 se ut til å være den beste modellen.
+Den økonomiske relevansen for EHD indeksen stemmer også med hedonisk pristeori, hvor boligprisene også reflekterer stedbaserte miljø- og sosioøkonomiske faktorer.
 
 # 6. Bruk en simultan test på tids-dummiene
 
@@ -332,11 +345,14 @@ print(test_result)
 
 Med denne testen, ønsker vi å se om tids-dummyene samlet sett har en signifikant effekt på boligprisene.
 
-F-verdien er 21.969, noe som er relativt høyt. En høy F-verdi indikerer at modellen med dummyene forklarer variasjonen i boligprisene bedre enn modellen uten dummyene.
+F-verdien er 21.969, noe som er relativt høyt.
+En høy F-verdi indikerer at modellen med dummyene forklarer variasjonen i boligprisene bedre enn modellen uten dummyene.
 
 P-verdien er veldig lav, og under 0.05, og vi kan derfor avvise nullhypotesen om at alle tids-dummy koeffisientene er lik null.
 
-Vi kan utifra dette konkludere med at tids-dummyene har en signifikant samlet effekt på boligprisene. Dette betyr at de bidrar til å forklare variasjonene i prisene, og bør derfor inkluderes i modellen. Grunnen til dette kan være at prisene påvirkes av tidsbestemte faktorer som etterspørsel og markedsforhold i forskjellige måneder eller år.
+Vi kan utifra dette konkludere med at tids-dummyene har en signifikant samlet effekt på boligprisene.
+Dette betyr at de bidrar til å forklare variasjonene i prisene, og bør derfor inkluderes i modellen.
+Grunnen til dette kan være at prisene påvirkes av tidsbestemte faktorer som etterspørsel og markedsforhold i forskjellige måneder eller år.
 
 # 7.Spatial Regressions
 
@@ -452,15 +468,22 @@ print(lm_tests)
 
 ## Diskuter hvilken modell (SAR, SEM eller lm (OLS)) som synes å være den beste.
 
-Ved å analysere boligpriser vurderes her romlige avhengigheter, da priser i ett område kan påvirkes av priser i nærliggende områder. En enkel OLS-modell ignorerer slike romlige effekter, noe som kan føre til skjevheter, i dette tilfeller viser moran i-test for OLS at p-verdi er \< 0,05, som indikerer at OLS-modellen ikke klarer å fange opp de romlige avhengighetene i dataene.
+Ved å analysere boligpriser vurderes her romlige avhengigheter, da priser i ett område kan påvirkes av priser i nærliggende områder.
+En enkel OLS-modell ignorerer slike romlige effekter, noe som kan føre til skjevheter, i dette tilfeller viser moran i-test for OLS at p-verdi er \< 0,05, som indikerer at OLS-modellen ikke klarer å fange opp de romlige avhengighetene i dataene.
 
-SEM modellen viser romlig autokorrelasjon i feilleddene, noe som kan oppstå når det er romlig korrelerte faktorer som ikke er inkludert i modellen. SAR modellen tar hensyn til romlig avhengighet i den avhengige variabelen ved å inkludere en lagget versjon som en forklaringsvariabel. Dette kan være nyttig når boligprisene direkte påvirkes av priser i nærliggende områder.
+SEM modellen viser romlig autokorrelasjon i feilleddene, noe som kan oppstå når det er romlig korrelerte faktorer som ikke er inkludert i modellen.
+SAR modellen tar hensyn til romlig avhengighet i den avhengige variabelen ved å inkludere en lagget versjon som en forklaringsvariabel.
+Dette kan være nyttig når boligprisene direkte påvirkes av priser i nærliggende områder.
 
-For boligprisanalyse er det ofte hensiktsmessig å starte med en SAR modell, da boligpriser typisk påvirkes av priser i nærliggende områder. Hvis det fortsatt er romlig autokorrelasjon i residualene etter å ha brukt SAR, kan det være nødvendig å vurdere en SEM modell eller en kombinasjon av begge.
+For boligprisanalyse er det ofte hensiktsmessig å starte med en SAR modell, da boligpriser typisk påvirkes av priser i nærliggende områder.
+Hvis det fortsatt er romlig autokorrelasjon i residualene etter å ha brukt SAR, kan det være nødvendig å vurdere en SEM modell eller en kombinasjon av begge.
 
 ## Bruk så teknikken med nestede modeller anbefalt av LeSage ([n.d.](https://msb205.netlify.app/assignment/kc_h24/assignment_text_24#ref-lesage)). Diskuter først om vi står overfor et *lokalt* eller *globalt* fenomen. Bruk opsjonen `durban = as.formula(~ variabelnavnene du vil ha impacts for)`. Dette for å slippe impacts for tidsdummiene. Test så de nestede modellne vha. *likelihood ratio test*. Hvilken modell synes å være den beste?
 
-I ett boligmarked kan det være både blanding av lokale og globale effekter. En lokal tilnærming ser på nabolagseffekter, mens globale fenomen er når markedsforholdene påvirker en hel region. slide 27. Morans i-test viser sterk spatial autokorrelasjon, som støtter romlige interaksjoner som indikerer at det er ett lokalt fenomen.
+I ett boligmarked kan det være både blanding av lokale og globale effekter.
+En lokal tilnærming ser på nabolagseffekter, mens globale fenomen er når markedsforholdene påvirker en hel region.
+slide 27.
+Morans i-test viser sterk spatial autokorrelasjon, som støtter romlige interaksjoner som indikerer at det er ett lokalt fenomen.
 
 ```{r}
 #| echo: false
@@ -541,7 +564,8 @@ slx_impacts <- impacts(slx_model,
 summary(slx_impacts)
 ```
 
-SDEM modellen synes å være den beste basert på både likelihood ratio test og impacts test da den er signifikant for flere variabler, slik som sqdr_living, bedrooms, P0C_percen og inc_fam tot. Dette gir også nformasjon om mer indirekte effekter som lokale spillover effekter.
+SDEM modellen synes å være den beste basert på både likelihood ratio test og impacts test da den er signifikant for flere variabler, slik som sqdr_living, bedrooms, P0C_percen og inc_fam tot.
+Dette gir også nformasjon om mer indirekte effekter som lokale spillover effekter.
 
 ## For alternativet k=10 (10 nærmeste naboer). Bruk `moran.plot()` på residualene fra de ulike modellene for å illustrere hvor godt hver modell fjerner «spatial effects» fra residualene.
 
@@ -610,7 +634,9 @@ ggplot(data, aes(x = attribute, y = marginal_price)) +
 
 ```
 
-Den hedoniske modellen baserer seg på antakelsen om at boligpriser reflekterer summen av egenskapene til boligen og området. For eksempel, variabler som boligstørrelse, antall soverom, avstand til CBD, og miljøfaktorer som forurensning eller fattigdomsrater, påvirker prisen. Modellen gir en måte å kvantifisere hvordan hver av disse egenskapene påvirker verdien.
+Den hedoniske modellen baserer seg på antakelsen om at boligpriser reflekterer summen av egenskapene til boligen og området.
+For eksempel, variabler som boligstørrelse, antall soverom, avstand til CBD, og miljøfaktorer som forurensning eller fattigdomsrater, påvirker prisen.
+Modellen gir en måte å kvantifisere hvordan hver av disse egenskapene påvirker verdien.
 
 ## Tolkning av koeffisienter
 
@@ -648,7 +674,8 @@ SDEM-modellen:
 
 Alle valgte koeffisienter er signifikante med p-verdier under 0.05, noe som indikerer at effektene ikke skyldes tilfeldigheter.
 
-Tegnene og størrelsene er rimelige i henhold til hedonisk teori. Størrelse og antall bad øker boligprisen, mens miljøproblemer og avstand til CBD reduserer den.
+Tegnene og størrelsene er rimelige i henhold til hedonisk teori.
+Størrelse og antall bad øker boligprisen, mens miljøproblemer og avstand til CBD reduserer den.
 
 ## Implisitte priser for SAR-modellen
 
@@ -666,7 +693,9 @@ Eksempler på implisitte priser:
 
 # 9. Oppsummering
 
-I denne oppgaven har vi analysert boligpriser i King County ved hjelp av hedoniske modeller for å forstå hvordan forskjellige egenskaper og miljøforhold påvirker verdien av eiendommer. Arbeidet har omfattet datarensing, romlig analyse og modellering av boligpriser basert på både individuelle boligkarakteristika og områdespesifikke faktorer. Her er en oppsummering av hovedfunnene:
+I denne oppgaven har vi analysert boligpriser i King County ved hjelp av hedoniske modeller for å forstå hvordan forskjellige egenskaper og miljøforhold påvirker verdien av eiendommer.
+Arbeidet har omfattet datarensing, romlig analyse og modellering av boligpriser basert på både individuelle boligkarakteristika og områdespesifikke faktorer.
+Her er en oppsummering av hovedfunnene:
 
 #### Oppsummering
 
@@ -682,15 +711,19 @@ I denne oppgaven har vi analysert boligpriser i King County ved hjelp av hedonis
 
 2.  **Hedoniske Modeller:**
 
-    -   **Modell 1:** Grunnmodell basert på boligkarakteristika (antall rom, størrelse etc.) og tids-dummyer. Modellen forklarte prisvariasjonen godt, men fanget ikke opp områdespesifikke forhold.
+    -   **Modell 1:** Grunnmodell basert på boligkarakteristika (antall rom, størrelse etc.) og tids-dummyer.
+        Modellen forklarte prisvariasjonen godt, men fanget ikke opp områdespesifikke forhold.
 
-    -   **Modell 2:** Inkluderte avstand til CBD og relevante traktsvariabler (fattigdomsrate, sosioøkonomiske faktorer). Modellen viste at boliger nær CBD og områder med færre sosioøkonomiske utfordringer har høyere verdi.
+    -   **Modell 2:** Inkluderte avstand til CBD og relevante traktsvariabler (fattigdomsrate, sosioøkonomiske faktorer).
+        Modellen viste at boliger nær CBD og områder med færre sosioøkonomiske utfordringer har høyere verdi.
 
-    -   **Modell 3:** Utvidet Modell 2 med Environmental Health Disparities Index (EHD). Denne modellen hadde høyest forklaringskraft (R2R^2R2) og balanse mellom kompleksitet og ytelse (lavest AIC/BIC).
+    -   **Modell 3:** Utvidet Modell 2 med Environmental Health Disparities Index (EHD).
+        Denne modellen hadde høyest forklaringskraft (R2R\^2R2) og balanse mellom kompleksitet og ytelse (lavest AIC/BIC).
 
 3.  **Romlige Effekter:**
 
-    -   Analysene viste betydelige romlige avhengigheter i boligprisene. Modellen med spatial autoregressive terms (SAR) reduserte residualene betydelig og forbedret modellens ytelse.
+    -   Analysene viste betydelige romlige avhengigheter i boligprisene.
+        Modellen med spatial autoregressive terms (SAR) reduserte residualene betydelig og forbedret modellens ytelse.
 
     -   Moran’s I-test på residualene bekreftet at modellene med romlige effekter håndterte geografiske avhengigheter bedre enn standard OLS.
 
@@ -700,10 +733,13 @@ I denne oppgaven har vi analysert boligpriser i King County ved hjelp av hedonis
 
 #### Konklusjon
 
-Denne oppgaven demonstrerer hvordan boligpriser påvirkes av en kombinasjon av individuelle boligegenskaper, områdespesifikke faktorer og romlige effekter. Spesielt har vi sett at:
+Denne oppgaven demonstrerer hvordan boligpriser påvirkes av en kombinasjon av individuelle boligegenskaper, områdespesifikke faktorer og romlige effekter.
+Spesielt har vi sett at:
 
 -   Modeller som inkluderer miljømessige og sosioøkonomiske forhold (Modell 3) gir en mer realistisk og robust forklaring på prisdannelsen.
 
 -   Spatial regresjon er avgjørende for å håndtere geografiske avhengigheter og oppnå mer nøyaktige resultater.
 
-De beste modellene kan brukes til å informere beslutningstakere, som byplanleggere, politikere og investorer, om hvordan ulike faktorer påvirker boligmarkedet. Dette kan bidra til bedre planlegging og mer rettferdige boligpolitikk. Samlet sett viser resultatene i oppgaven vår at kombinasjonen av hedoniske modeller og romlige analyser er et kraftig verktøy for å forstå og forutsi boligpriser.
+De beste modellene kan brukes til å informere beslutningstakere, som byplanleggere, politikere og investorer, om hvordan ulike faktorer påvirker boligmarkedet.
+Dette kan bidra til bedre planlegging og mer rettferdige boligpolitikk.
+Samlet sett viser resultatene i oppgaven vår at kombinasjonen av hedoniske modeller og romlige analyser er et kraftig verktøy for å forstå og forutsi boligpriser.
