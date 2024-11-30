@@ -11,7 +11,8 @@ author: Henriette Hansen & Anine Therese Karlsen
 ```{r}
 #| label: setup 
 #| echo: false
-#| output: false
+#| warning: false
+#| message: false
 
 library(tidyverse)
 library(huxtable)
@@ -145,15 +146,30 @@ income_data <- income_data %>%
     perc_high_income = (high_income / total_families) * 100
   )
 
-# Konverter income_data til sf
+# ag: Tror dere havner i trøbbel her. Jeg ville heller bare brukt 
+# en left_join med x = tracts10 og y = income_data. I tract10 har 
+# dere en variabel GEO_ID_TRT med ID for census tract. Tilsvarende
+# variabel i income_data heter GEOIDTRT.
+# Følgende kode vil legg inntekstdataene til tract10
+
+
+```
+
+```{r}
+# sjekker kartene
+st_crs(tracts10)
+```
+
+```{# Konverter income_data til sf}
 income_data_sf <- income_data %>%
   mutate(dummy_geometry = st_sfc(st_point(c(NA_real_, NA_real_)))) %>%
   st_as_sf()
 
+
 # CRS for income_data_sf til EPSG:2926
 st_crs(income_data_sf) <- st_crs(kc_wadoh_map)
 
-# spatial join av dataene
+# spatial join av dataenee
 kc_wadoh_map <- st_join(kc_wadoh_map, income_data_sf, by = c("GEO_ID_TRT" = "GEOIDTRT"))
 
 # Last ned shape filene tracts10 fra censusSHP mappen
@@ -178,9 +194,15 @@ tracts10 <- st_transform(tracts10, crs = 2926)
 
 # Transponer til EPSG:2926
 kc_wadoh_map <- st_transform(kc_wadoh_map, crs = 2926)
+```
 
+```{r}
 # sjekker kartene
 st_crs(tracts10)
+```
+
+```{r}
+# sjekker kartene
 st_crs(kc_wadoh_map)
 ```
 
@@ -192,6 +214,11 @@ st_crs(kc_wadoh_map)
 
 # Sjekk områdevariablene fra WADOH for tracts10
 summary(tracts10)
+```
+
+```{r}
+#| echo: false
+#| output: false
 
 # Fjern rader med kun NA-verdier
 tracts10 <- tracts10 %>%
@@ -202,6 +229,8 @@ tracts10 <- tracts10 %>%
                    "wastewater", "sen_pop_pe", "socio_perc")))
 
 # Lag en faktor-variabel av år og måned ut fra Date, kall den year_month.
+
+summary(tracts10)
 
 names(kc_house_sf_2926)
 
