@@ -150,9 +150,67 @@ income_data <- income_data %>%
 # en left_join med x = tracts10 og y = income_data. I tract10 har 
 # dere en variabel GEO_ID_TRT med ID for census tract. Tilsvarende
 # variabel i income_data heter GEOIDTRT.
-# Følgende kode vil legg inntekstdataene til tract10
+# Følgende kode vil legg inntektsdataene til tract10
 
+# Laster data
+tracts10 <- st_read("MapsData/censusSHP/tracts10.shp")
 
+tracts10 <- left_join(
+  x = tracts10,
+  # ag: er vel bare perc_low_income:perc_high_income vi trenger
+  y = select(income_data, GEOIDTRT, perc_low_income:perc_high_income),
+  by = join_by(GEO_ID_TRT == GEOIDTRT)
+)
+
+# # Konverter income_data til sf
+# income_data_sf <- income_data %>%
+#   mutate(dummy_geometry = st_sfc(st_point(c(NA_real_, NA_real_)))) %>%
+#   st_as_sf()
+
+# # CRS for income_data_sf til EPSG:2926
+# st_crs(income_data_sf) <- st_crs(kc_wadoh_map)
+
+# spatial join av dataene
+# 
+# ag: Trenger ikke gjøre en spatial join for begge er samme type 
+# kart over de 398 census tract og vi har en kode for å knytte dem sammen
+# men vi dropper geometrien fra kc_wadoh_map slik at vi bare legger en
+# dataframe med data til tracts10. Vi matcher igjen med tract ID.
+# kc_wadoh_map <- st_join(kc_wadoh_map, income_data_sf, by = c("GEO_ID_TRT" = "GEOIDTRT"))
+
+tracts10 <- left_join(
+  x = tracts10,
+  y = st_drop_geometry(kc_wadoh_map),
+  # ID har samme navn i de to filene
+  by = join_by(GEO_ID_TRT)
+)
+
+# ag: Da er vi ferdige og har fått dataene inn i tracts10. Dataene for rase
+# ser det ut til at dere har droppet, men de kunne vært lagt inn på samme 
+# vis som inntektsdataene
+
+# Last ned shape filene tracts10 fra censusSHP mappen
+
+# Laster data
+#tracts10 <- st_read("MapsData/censusSHP/tracts10.shp")
+
+# Bruk en left_join() for å få dataene fra WADOH King County inn i dette kartet.
+
+# Transformer tracts10 til CRS kc_wadoh_map
+#tracts10 <- st_transform(tracts10, st_crs(kc_wadoh_map))
+
+# Fjern geometrikolonnen fra `kc_wadoh_map` midlertidig
+#kc_wadoh_data <- kc_wadoh_map %>% st_drop_geometry()
+
+# # Utfører leftjoin
+# tracts10 <- tracts10 %>%
+#   left_join(kc_wadoh_data, by = "GEO_ID_TRT")
+# 
+# # Transponer til EPSG:2926
+# tracts10 <- st_transform(tracts10, crs = 2926)
+# 
+# # Transponer til EPSG:2926
+# kc_wadoh_map <- st_transform(kc_wadoh_map, crs = 2926)
 ```
 
 ```{r}
@@ -161,6 +219,8 @@ st_crs(tracts10)
 ```
 
 ```{# Konverter income_data til sf}
+#| eval: false
+# Dette er ikke nødvendig. En vanlig left_join() gjør jobben.
 income_data_sf <- income_data %>%
   mutate(dummy_geometry = st_sfc(st_point(c(NA_real_, NA_real_)))) %>%
   st_as_sf()
@@ -219,6 +279,11 @@ summary(tracts10)
 ```{r}
 #| echo: false
 #| output: false
+# Her kreves en spatial join siden husene er punktdata med sine variabler, 
+# mens dataene i tracts10 er område data. Vi ønsker å tilordne til husene 
+# data for området de ligger i. Dette gjøres ved en spatial join der vi
+# finner ut hvilke punkter som ligger i hvilket område. Her viktig at 
+# projeksjonene er de samme.
 
 # Fjern rader med kun NA-verdier
 tracts10 <- tracts10 %>%
@@ -237,8 +302,22 @@ names(kc_house_sf_2926)
 # faktorvariabel år og måned
 kc_house_sf_2926 <- kc_house_sf_2926 %>%
   mutate(year_month = factor(format(date, "%Y-%m")))
+```
+
+```{r}
+st_crs(kc_house_sf_2926)
+```
+
+```{r}
+st_crs(tracts10)
+```
+
+```{r}
+tracts10 <- st_transform(tracts10, "EPSG:2926")
+```
 
 
+```{r}
 #Spatial join mellom husdata og områdedata
 house_data_with_tracts <- st_join(kc_house_sf_2926, tracts10)
 
@@ -248,6 +327,7 @@ house_data_with_tracts <- house_data_with_tracts %>%
 # Lagre husdataene som GeoPackage-fil
 st_write(house_data_with_tracts, "house_data_with_tracts.gpkg", append = FALSE)
 ```
+
 
 # 4. Utfør EDA i GeoDA
 
@@ -318,6 +398,7 @@ modelsummary(
   vcov = "HC3",  
   output = "flextable"
 ) %>%
+  width(j =1, width = 1.7) |> 
   theme_booktabs() %>%
   line_spacing(space = 0.3, part = "body")
 ```
@@ -478,11 +559,22 @@ listw_k3 <- nb2listw(nb_k3, style = "W")
 # vektmatrise for de 10 nærmeste naboene
 nb_k10 <- knn2nb(knearneigh(coords, k = 10))
 listw_k10 <- nb2listw(nb_k10, style = "W")
-
-# matrisene
-summary(listw_k3)
-summary(listw_k10)
 ```
+
+```{r}
+#| paged.print: false
+# matrisene
+listw_k3
+#summary(listw_k3)
+```
+
+```{r}
+#| paged.print: false
+# matrisene
+listw_k10
+#summary(listw_k10)
+```
+
 
 ## Bruk Anselin (1988) sin teknikk med Lagrange Multiplikator test vha. lm.LMtests()
 
@@ -520,32 +612,52 @@ Morans i-test viser sterk spatial autokorrelasjon, som støtter romlige interaks
 # Formel
 mod_formel2 <- price ~ sqft_living + bedrooms + bathrooms + floors + inc_fam_tot + POC_percen
 
+```
+
+```{r}
 # SDEM modell
 sdem_model <- errorsarlm(mod_formel2, 
                          data = kc_house_data_with_tracts, 
                          listw = listw_k10, 
-                         Durbin = TRUE)
+                         Durbin = TRUE
+                         )
+```
 
+```{r}
 # SLX modell
 slx_model <- lmSLX(mod_formel2, 
                    data = kc_house_data_with_tracts, 
-                   listw = listw_k10)
+                   listw = listw_k10
+                   )
+```
 
+```{r}
 # SEM modell
 sem_model <- errorsarlm(mod_formel2, 
                         data = kc_house_data_with_tracts, 
                         listw = listw_k10, 
-                        Durbin = FALSE)
+                        Durbin = FALSE
+                        )
+```
 
+```{r}
 # OLS modellen
 ols_model <- lm(mod_formel2, data = kc_house_data_with_tracts)
+```
 
+```{r}
 # Oppsummere
-summary(sdem_model)
-summary(slx_model)
+# ag: Summary og tolkning av koeffisientene er bare relevant for SEM og OLS. 
+# for SDEM og SLX er det impacts som skal tolkes
+#summary(sdem_model)
+#summary(slx_model)
 summary(sem_model)
 summary(ols_model)
 ```
+
+ag: Summary og impacts bør kanskje tolkes før dere tester for å finne den beste modellen. Event. hvis en vil gjøre det kotfattet kan en teste for å bestemme beste modell og så tolke summary(hvis SEM eller OLS er best) eller impacts (hvis SDEM eller SLX er best).
+
+
 
 ```{r}
 #| echo: false

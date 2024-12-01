@@ -8,7 +8,33 @@ format:
 
 ## Generelt
 
+OK paper. Ta en titt på hvordan enlegger data til et kart. Når dere har et datasett som har koder for område (census tract) trenger dere ikke bruke en spatial join. Det holder med en vanlig left_join() dere dere bruker tract ID som key. Tilsvarende hvis dere har to kart som inneholder census tract data (som tract10 og wadoh) kan dere også bruke en vanlig left_join() og matche med tract ID. Her må dere imidlertid fjerne kartinformasjonen fra det kartet som inneholder data som dere vil legge til. Det kan dere f.eks gjøre vha. st_drop_geometry(). Kartet blir da en valig tibble.
+
+Ellers vil jeg anbefale å dele koden opp i flere chunk og benytte labels. Dette vil gjøre det enklere å finne feil og også mer fleksibelt mht. hva som skal vises i det endelige dokumentet.
+
+For spacial economtrics modellen pass på hva som skal tolkes. For lokalt fenomen etter LeSages anbefaligner skal regresjonskoeffisienter tolkes for SEM og OLS modellene. For SDEM og SLX er det derimot impacts som skal tolkes.
 
 ## Andre punkt
 
-- 
+- I setup sett heller message: og warning: til false isteden for output:
+- Generelt er det et tips å bruke flere chunks, dvs. ikke utfør mange ulike ting i en chunk.
+- Gir dere chunk-ene navn vha. label: er det også enkle å finne eventuelle feil
+- Dere gjør det unødvendig komplisert å samle alle data i et kart. Når dere f.eks har fått tract10 i riktig projeksjon og ønsker å samle data i dette kartet kan dere bruke left_join() og ID-ene for census tract. For kc_wadoh_data som er et kart med data må dere først fjerne kartinfo (geometry) med funksjonen st_drop_geometry(). kc_wadoh_data blir da en vanlig df/tibble. Se mitt forslag til revidert/forenklet kode i Assignment.qmd.
+- rase variabelen ser det ut til at dere har droppet, men den kan legges inn på samme måte som inntektsvariabelen.
+- Fin bruk av drop_na(any_of()) på tracts10 for å droppe observasjoner med NA.
+- I tabellen: «Oppsummeringstabell med robuste standardfeil og t-verdier» la jeg inn kommandoen `width(j =1, width = 1.7)` får å få venstre kolonne bred nok.
+- Under testen av tids-dummyene skriver dere «F-verdien er 21.969, noe som er relativt høyt.
+En høy F-verdi indikerer at modellen med dummyene forklarer variasjonen i boligprisene bedre enn modellen uten dummyene.» Den siste setningen er ikke helt korrekt. Det som testes er den sammensatte hypotesen at disse koeffisienete skulle vært 0 (dvs. burde droppes fra modellen). Resultatet av testen er at H0 forkastes, dvs. tids--dummyene bør være med i modellen.
+- I kc_house_data_7654 hadde jeg lagt inn data, men som dere glemt rase-variablene.
+- Når det gjelder listw_k3 og listw_k10 vil jeg foreslå print() og #| paged.print: false isteden for summary() som gir endeløse lister av naboer og vekter.
+- Anselin OK, men dere burde poengtert at testen ikke gir noen konklusjon om hvilken modell som er best.
+- LeSage: Her vil jeg sterkt anbefale dere å bruke en chunk på hver modell. Eventuelt kombinert med cache: true for å slipe å estimere modellene hver gang dere kjører dokumentet. Særlig siden det er en warning: «Warning: inversion of asymptotic covariance matrix failed for tol.solve = 2.22044604925031e-16 
+  reciprocal condition number = 2.75872e-22 - using numerical Hessian.Warning: inversion of asymptotic covariance matrix failed for tol.solve = 2.22044604925031e-16 
+  reciprocal condition number = 2.22367e-22 - using numerical Hessian.» som er vanskelig å tyde når alt skjer i en stor chunk.
+- Husk at det som skal tolkes er summary() for SEM og OLS og impacts for SDEM og SLX.
+- Dere burde dele koden opp i flere chunks. Helst en chunk for hver kommando/pipe.
+
+
+
+
+
