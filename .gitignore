@@ -1,10 +1,13 @@
 # Added
-MapsData/*
+MapsData/
 *.pdf
 *.html
 *.docx
 *.Rproj
 .DS_Store
+# Do not track *.gwt and *.gpkg
+*.gwt
+*.gpkg
 
 # History files
 .Rhistory
